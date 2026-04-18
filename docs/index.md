@@ -1,7 +1,9 @@
-# Domain API Template
+# Pet Insurance API
 
-A spec-driven, contract-first REST API template for Node.js/Express.
-Write your specs first — then implement. The **Items** example domain shows every pattern in action.
+A spec-driven, contract-first **Pet Insurance REST API** built with Python/FastAPI.
+
+Pet owners can register their pets and submit insurance claims for veterinary costs.
+Insurance agents review, approve, or reject those claims.
 
 ---
 
@@ -13,8 +15,8 @@ All authoritative business requirements live in `docs/specifications/`.
 | Document | Description |
 |---|---|
 | [Product Requirements](specifications/prd.md) | Problem statement, personas, user stories, goals |
-| [Domain Model](specifications/domain-model.md) | Entities, attributes, relationships, business rules |
-| [Auth Matrix](specifications/auth-matrix.md) | Roles and which operations each role may perform |
+| [Domain Model](specifications/domain-model.md) | Pet + Claim entities, relationships, claim lifecycle |
+| [Auth Matrix](specifications/auth-matrix.md) | `pet_owner` and `agent` roles and access rules |
 | [Sequence Diagrams](specifications/sequence-diagrams.md) | Key interaction flows (Mermaid) |
 | [**Interactive API Reference →**](specifications/api-reference.html) | OpenAPI 3.0.3 contract — live try-it-out |
 | [**AsyncAPI Event Reference →**](specifications/asyncapi-reference.html) | Domain event catalogue — CloudEvents schemas |
@@ -26,17 +28,16 @@ Raw contract files: [`specifications/contracts/openapi.yaml`](specifications/con
 ## Tasks
 
 All automation is in `Taskfile.yml` (project-wide) and `Taskfile.api.yml` (API-specific).
-Always use `task` — never run raw `npm`, `curl`, or `spectral` directly.
+Always use `task` — never run raw `curl`, `pip`, or `spectral` directly.
 
 ```bash
 task                # list all available tasks
-task api:install    # install npm dependencies
+task api:install    # install Python dependencies (pip)
 task api:dev        # start dev server on http://localhost:3000
 task api:test       # run all tests
 task lint           # lint OpenAPI + AsyncAPI contracts
 task domain:check   # lint + test in one step
-task domain:init    # seed blank spec templates into docs/specifications/
-task api:demo       # run the full end-to-end demo
+task api:demo       # run the full end-to-end pet insurance demo
 task docs:serve     # serve this documentation site locally
 ```
 
@@ -46,13 +47,13 @@ task docs:serve     # serve this documentation site locally
 
 | Layer | Location | Description |
 |-------|----------|-------------|
-| Entry point | `api/src/server.js` | Starts the Express server |
-| App config | `api/src/app.js` | CORS, rate limiting, OpenAPI validation middleware |
-| Auth | `api/src/auth.js` · `api/src/middleware/authenticate.js` | JWT signing/verification and `requireRole` helper |
-| Routes | `api/src/routes/` | One file per resource |
-| Store | `api/src/store.js` | In-memory store (no database) |
-| Error handling | `api/src/middleware/errorHandler.js` | Centralised error handler |
-| Tests | `api/tests/` | Per-route integration tests using `api/tests/helpers.js` |
+| Entry point | `api/server.py` | Starts the Uvicorn server |
+| App config | `api/src/main.py` | CORS, rate limiting, routes, exception handling |
+| Auth | `api/src/auth.py` · `api/src/middleware/authenticate.py` | JWT signing/verification and `require_role` dependency |
+| Routes | `api/src/routes/auth.py` · `pets.py` · `claims.py` | Auth, pets, claims |
+| Store | `api/src/store.py` | In-memory store — `users`, `pets`, `claims` dicts |
+| Models | `api/src/models.py` | Pydantic request/response models |
+| Tests | `api/tests/` | Per-route integration tests using `api/tests/helpers.py` |
 
 ---
 
@@ -60,34 +61,29 @@ task docs:serve     # serve this documentation site locally
 
 1. **Specs drive code.** If code and spec disagree, fix the code — not the spec.
 2. **Do not edit `docs/specifications/` incidentally.** Spec changes are deliberate business decisions.
-3. **Domain model is authoritative for naming.** Entity and attribute names defined here must be used consistently across routes, tests, and store.
+3. **Domain model is authoritative for naming.** Entity and attribute names must be used consistently across routes, tests, and store.
 4. **Auth matrix is authoritative for access control.** All route and middleware logic must match it exactly.
 5. **OpenAPI contract is authoritative for the REST API.** Paths, methods, request/response shapes, and status codes must match.
 6. **Task-first.** Run `task` to discover commands. If no task exists for an operation, add one before running it.
-7. **Business language over CRUD.** Use domain verbs in specs, user stories, descriptions, and comments. Prefer "add / edit / remove / archive" over "create / update / delete" in any human-readable context. HTTP methods and technical identifiers keep their technical names.
+7. **Business language over CRUD.** Prefer "register / submit / approve / reject / cancel / edit / remove" over "create / update / delete" in human-readable contexts.
 
 ---
 
-## Example Domain: Items
+## Domain Summary
 
-The included example is a minimal **Items catalogue** — two roles and one resource — generic enough to learn from without domain noise:
+### Roles
 
-- **2 roles**: `contributor` (add/edit/remove own items) · `viewer` (read-only)
-- **1 resource**: `items` (id, name, description, status, contributorId, createdAt, updatedAt)
-- Authentication: register, login, refresh token, logout (JWT)
+| Role | Can do |
+|------|--------|
+| `pet_owner` | Register pets, submit claims, view/cancel own claims |
+| `agent` | View any pet, list/view all claims, approve/reject claims |
 
-This example demonstrates auth, RBAC, item lifecycle, ownership rules, pagination, and domain events end-to-end.
-Replace it entirely when you instantiate the template for a real domain.
+### Claim Status Lifecycle
 
----
+```
+pending ──► approved   (agent action)
+pending ──► rejected   (agent action)
+pending ──► [removed]  (pet owner cancels)
+```
 
-## Bootstrap a New Domain
-
-1. Create a new repo from this template (**Use this template** on GitHub)
-2. `task api:install`
-3. `task domain:init` — copies blank spec templates into `docs/specifications/`
-4. Fill in each spec file (start with `prd.md`, then `domain-model.md`, `auth-matrix.md`, `sequence-diagrams.md`, finally the contracts)
-5. Update `api/src/store.js` with your domain's entities
-6. Replace `api/src/routes/` and `api/tests/` with your domain's routes and tests
-7. `task domain:check` — all green ✓
-8. Update `README.md`, `AGENTS.md`, and this file (`docs/index.md`) for your domain
+Approved and rejected are terminal states.

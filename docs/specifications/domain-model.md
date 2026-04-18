@@ -1,13 +1,10 @@
-# Domain Model — Items
-
-> **Example domain.** This is the working reference implementation included with the Domain API Template.
-> Replace this file with your own domain model by running `task domain:init`.
+# Domain Model — Pet Insurance
 
 ---
 
 ## Overview
 
-The **Items** domain is a minimal catalogue of named items. Each item is owned by a contributor and has a simple `active` / `archived` lifecycle. There are two roles: `contributor` (creates and manages items) and `viewer` (read-only access).
+The **Pet Insurance** domain allows pet owners to register their pets and submit insurance claims for veterinary costs. Agents review and process those claims. There are two roles: `pet_owner` (registers pets and submits claims) and `agent` (reviews and approves or rejects claims).
 
 ---
 
@@ -24,7 +21,7 @@ Represents an authenticated user of the system.
 | `password` | string (hashed) | Yes | Bcrypt-hashed password (never returned in responses) |
 | `firstName` | string | Yes | Given name |
 | `lastName` | string | Yes | Family name |
-| `role` | enum | Yes | `contributor` or `viewer` |
+| `role` | enum | Yes | `pet_owner` or `agent` |
 | `createdAt` | ISO 8601 | Yes | Registration timestamp |
 
 **Business Rules:**
@@ -34,32 +31,59 @@ Represents an authenticated user of the system.
 
 ---
 
-### Item
+### Pet
 
-Represents a named entry in the catalogue, owned by a contributor.
+Represents a pet registered by a pet owner.
 
 | Attribute | Type | Required | Description |
 |-----------|------|----------|-------------|
 | `id` | UUID | Yes | Unique identifier |
-| `name` | string | Yes | Display name (min 1 char) |
-| `description` | string \| null | No | Optional longer description |
-| `status` | enum | Yes | `active` or `archived` |
-| `contributorId` | UUID | Yes | ID of the user who created this item |
-| `createdAt` | ISO 8601 | Yes | Creation timestamp |
+| `name` | string | Yes | Pet's name (min 1 char) |
+| `species` | enum | Yes | `dog`, `cat`, `rabbit`, `bird`, or `other` |
+| `breed` | string \| null | No | Breed or type (optional) |
+| `dateOfBirth` | date (YYYY-MM-DD) | Yes | Pet's date of birth |
+| `petOwnerId` | UUID | Yes | ID of the user who registered this pet |
+| `createdAt` | ISO 8601 | Yes | Registration timestamp |
 | `updatedAt` | ISO 8601 | Yes | Last update timestamp |
 
 **Business Rules:**
-- `status` defaults to `active` on creation.
-- Only the contributor who added an item may edit or remove it.
-- Viewers may list and view any item but cannot modify them.
+- Only the pet owner who registered a pet may edit or remove it.
+- Agents may view any pet but cannot register, edit, or remove pets.
+
+---
+
+### Claim
+
+Represents an insurance claim submitted by a pet owner for a registered pet.
+
+| Attribute | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `id` | UUID | Yes | Unique identifier |
+| `petId` | UUID | Yes | ID of the pet this claim is for |
+| `petOwnerId` | UUID | Yes | ID of the pet owner who submitted the claim |
+| `amount` | number | Yes | Claimed amount in GBP (positive, max 2 decimal places) |
+| `description` | string | Yes | Description of the veterinary treatment |
+| `status` | enum | Yes | `pending`, `approved`, or `rejected` |
+| `createdAt` | ISO 8601 | Yes | Submission timestamp |
+| `updatedAt` | ISO 8601 | Yes | Last update timestamp |
+
+**Business Rules:**
+- `status` defaults to `pending` on submission.
+- Only an agent may approve or reject a claim.
+- Only the pet owner who submitted a claim may cancel it.
+- A claim may only be approved or rejected when `status` is `pending`.
+- A claim may only be cancelled when `status` is `pending`.
 
 ---
 
 ## Relationships
 
 ```
-User (role=contributor) ──── creates many ──── Item
-Item ──── belongs to ──────────────────────── User (contributorId)
+User (role=pet_owner) ──── registers many ──── Pet
+User (role=pet_owner) ──── submits many ──────── Claim
+Pet ──────────────────────── belongs to ──────── User (petOwnerId)
+Claim ────────────────────── belongs to ──────── User (petOwnerId)
+Claim ────────────────────── references ─────── Pet (petId)
 ```
 
 ---
@@ -68,7 +92,8 @@ Item ──── belongs to ─────────────────
 
 | Aggregate Root | Entities Contained | Description |
 |---------------|-------------------|-------------|
-| `Item` | Item | Self-contained; ownership is tracked via `contributorId` |
+| `Pet` | Pet | Self-contained; ownership tracked via `petOwnerId` |
+| `Claim` | Claim | Self-contained; references Pet by `petId`, owner by `petOwnerId` |
 | `User` | User | Self-contained; no nested child entities |
 
 ---
@@ -77,23 +102,29 @@ Item ──── belongs to ─────────────────
 
 | Event | Trigger | Channel |
 |-------|---------|---------|
-| `ItemAdded` | POST /v1/items → 201 | `items.item.added` |
-| `ItemEdited` | PATCH /v1/items/{itemId} → 200 | `items.item.edited` |
-| `ItemRemoved` | DELETE /v1/items/{itemId} → 204 | `items.item.removed` |
+| `PetRegistered` | POST /v1/pets → 201 | `pet-insurance.pet.registered` |
+| `ClaimSubmitted` | POST /v1/claims → 201 | `pet-insurance.claim.submitted` |
+| `ClaimApproved` | POST /v1/claims/{claimId}/approve → 200 | `pet-insurance.claim.approved` |
+| `ClaimRejected` | POST /v1/claims/{claimId}/reject → 200 | `pet-insurance.claim.rejected` |
+| `ClaimCancelled` | DELETE /v1/claims/{claimId} → 204 | `pet-insurance.claim.cancelled` |
 
 ---
 
-## Status Lifecycle
+## Status Lifecycles
 
-### Item Status
+### Claim Status
 
 ```
-active ⟷ archived
+pending ──► approved
+pending ──► rejected
+pending ──► [cancelled / removed]
 ```
 
 | From | To | Trigger |
 |------|----|---------|
-| `active` | `archived` | PATCH /v1/items/{itemId} with `status: "archived"` |
-| `archived` | `active` | PATCH /v1/items/{itemId} with `status: "active"` |
+| `pending` | `approved` | POST /v1/claims/{claimId}/approve (agent) |
+| `pending` | `rejected` | POST /v1/claims/{claimId}/reject (agent) |
+| `pending` | *(removed)* | DELETE /v1/claims/{claimId} (pet owner) |
 
-Items can be toggled between `active` and `archived` freely by their owner contributor.
+Approved and rejected are terminal states — no further status transitions are permitted.
+

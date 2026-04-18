@@ -38,7 +38,8 @@ Edit the files in `docs/specifications/` in this recommended order:
 
 With specs complete, implement the API to match:
 
-- `api/src/store.js` — Replace example entities with your domain's entities
+- `api/src/store.py` — Replace example entities with your domain's entities
+- `api/src/models.py` — Replace example Pydantic models with your domain's models
 - `api/src/routes/` — Replace example routes with routes matching your OpenAPI spec
 - `api/tests/` — Replace example tests with tests for your routes and auth matrix
 
@@ -59,11 +60,10 @@ task domain:check   # lint contracts + run all tests
 ## What to Keep vs Replace
 
 ### Keep (template engine — do not change unless there is a clear reason):
-- `api/src/app.js` — Express app setup (CORS, rate limiting, OpenAPI validation middleware)
-- `api/src/auth.js` — JWT signing/verification utilities
-- `api/src/middleware/authenticate.js` — JWT middleware and `requireRole` helper
-- `api/src/middleware/errorHandler.js` — Centralised error handler
-- `api/tests/helpers.js` — Token and store seeding helpers (extend, don't replace)
+- `api/src/main.py` — FastAPI app setup (CORS, rate limiting, routes, exception handling)
+- `api/src/auth.py` — JWT signing/verification utilities
+- `api/src/middleware/authenticate.py` — JWT dependency and `require_role` helper
+- `api/tests/helpers.py` — Token and store seeding helpers (extend, don't replace)
 - `Taskfile.yml` — Project-wide tasks (add domain tasks here)
 - `Taskfile.api.yml` — API-specific tasks (add resource tasks here)
 - `.spectral-openapi.yaml`, `.spectral-asyncapi.yaml` — Linting rulesets
@@ -71,14 +71,15 @@ task domain:check   # lint contracts + run all tests
 
 ### Replace (domain pack — this is what changes per project):
 - `docs/specifications/` — All spec files (use `task domain:init` to start)
-- `api/src/store.js` — Domain-specific in-memory entities
+- `api/src/store.py` — Domain-specific in-memory entities
+- `api/src/models.py` — Domain-specific Pydantic models
 - `api/src/routes/` — Domain-specific route handlers
-- `api/tests/*.test.js` (except `helpers.js`) — Domain-specific tests
+- `api/tests/test_*.py` (except `helpers.py`) — Domain-specific tests
 - `README.md` — Project description
 - `AGENTS.md` — Project-specific AI guidelines
 - `docs/index.md` — Docs homepage
 - `mkdocs.yml` — Site name, URL, repo name
-- `api/package.json` — Package name and description
+- `api/requirements.txt` — Package dependencies
 
 ## When Working on Specs vs Code
 

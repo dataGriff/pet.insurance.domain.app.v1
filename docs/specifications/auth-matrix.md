@@ -1,7 +1,4 @@
-# Auth Matrix — Items
-
-> **Example domain.** This is the working reference implementation included with the Domain API Template.
-> Replace this file with your own auth matrix by running `task domain:init`.
+# Auth Matrix — Pet Insurance
 
 ---
 
@@ -9,8 +6,8 @@
 
 | Role | Description |
 |------|-------------|
-| `contributor` | Can add items and edit/remove their own items |
-| `viewer` | Read-only access to items |
+| `pet_owner` | Can register pets and submit/cancel own claims |
+| `agent` | Can view pets and review (approve/reject) claims |
 
 ## Authentication
 
@@ -21,27 +18,52 @@ Tokens are issued via `POST /v1/auth/login` and refreshed via `POST /v1/auth/ref
 
 ## Auth Matrix
 
-| Operation | Endpoint | Public | contributor | viewer |
-|-----------|----------|--------|-------------|--------|
-| Register | `POST /v1/auth/register` | 🌐 | �� | 🌐 |
+### Authentication
+
+| Operation | Endpoint | Public | pet_owner | agent |
+|-----------|----------|--------|-----------|-------|
+| Register | `POST /v1/auth/register` | 🌐 | 🌐 | 🌐 |
 | Login | `POST /v1/auth/login` | 🌐 | 🌐 | 🌐 |
 | Refresh token | `POST /v1/auth/refresh` | 🌐 | 🌐 | 🌐 |
 | Logout | `POST /v1/auth/logout` | ❌ | ✅ | ✅ |
-| List items | `GET /v1/items` | ❌ | ✅ | ✅ |
-| Add item | `POST /v1/items` | ❌ | ✅ | ❌ |
-| View item | `GET /v1/items/{itemId}` | ❌ | ✅ | ✅ |
-| Edit item | `PATCH /v1/items/{itemId}` | ❌ | ✅ own | ❌ |
-| Remove item | `DELETE /v1/items/{itemId}` | ❌ | ✅ own | ❌ |
+
+### Pets
+
+| Operation | Endpoint | Public | pet_owner | agent |
+|-----------|----------|--------|-----------|-------|
+| List pets | `GET /v1/pets` | ❌ | ✅ own | ❌ |
+| Register pet | `POST /v1/pets` | ❌ | ✅ | ❌ |
+| View pet | `GET /v1/pets/{petId}` | ❌ | ✅ own | ✅ |
+| Edit pet | `PATCH /v1/pets/{petId}` | ❌ | ✅ own | ❌ |
+| Remove pet | `DELETE /v1/pets/{petId}` | ❌ | ✅ own | ❌ |
+
+### Claims
+
+| Operation | Endpoint | Public | pet_owner | agent |
+|-----------|----------|--------|-----------|-------|
+| List claims | `GET /v1/claims` | ❌ | ✅ own | ✅ all |
+| Submit claim | `POST /v1/claims` | ❌ | ✅ | ❌ |
+| View claim | `GET /v1/claims/{claimId}` | ❌ | ✅ own | ✅ |
+| Approve claim | `POST /v1/claims/{claimId}/approve` | ❌ | ❌ | ✅ |
+| Reject claim | `POST /v1/claims/{claimId}/reject` | ❌ | ❌ | ✅ |
+| Cancel claim | `DELETE /v1/claims/{claimId}` | ❌ | ✅ own | ❌ |
 
 Legend:
 - 🌐 Public (no auth required)
 - ✅ Allowed
-- ✅ own — Allowed only if `item.contributorId === req.user.sub`
+- ✅ own — Allowed only for the pet owner's own records
+- ✅ all — Allowed for all records regardless of owner
 - ❌ Forbidden
 
-## Ownership Rule
+## Ownership Rules
 
-A `contributor` may only edit or remove items where `item.contributorId` matches their user ID (`req.user.sub`). Attempting to modify another contributor's item returns `403 Forbidden`.
+- **Pet**: A `pet_owner` may only list, view, edit, or remove pets where `pet.petOwnerId` matches their user ID.
+- **Claim**: A `pet_owner` may only view or cancel claims where `claim.petOwnerId` matches their user ID. Attempting to access another owner's records returns `403 Forbidden`.
+
+## Status Rules
+
+- Approve and reject actions are only permitted when `claim.status === "pending"`. Attempting to act on a non-pending claim returns `409 Conflict`.
+- Cancel (DELETE) is only permitted when `claim.status === "pending"`. Attempting to cancel a non-pending claim returns `409 Conflict`.
 
 ## Error Responses
 
@@ -50,4 +72,5 @@ A `contributor` may only edit or remove items where `item.contributorId` matches
 | No token provided | `401` | `AUTHENTICATION_REQUIRED` |
 | Token expired | `401` | `TOKEN_EXPIRED` |
 | Valid token, wrong role | `403` | `FORBIDDEN` |
-| Valid token, not item owner | `403` | `FORBIDDEN` |
+| Valid token, not resource owner | `403` | `FORBIDDEN` |
+| Claim not in pending status | `409` | `INVALID_STATUS` |

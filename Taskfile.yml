@@ -12,36 +12,36 @@ tasks:
       - task --list
 
   api:install:
-    desc: Install API dependencies
+    desc: Install API dependencies (Python/pip)
     dir: api
     cmds:
-      - npm ci
+      - pip install -r requirements-dev.txt
 
   api:start:
     desc: Start the API server
     dir: api
     cmds:
-      - npm start
+      - python server.py
 
   api:dev:
-    desc: Start the API in development mode with nodemon
+    desc: Start the API in development mode (uvicorn --reload)
     dir: api
     env:
       CORS_ORIGINS: 'http://localhost:8000,http://127.0.0.1:8000'
     cmds:
-      - npm run dev
+      - uvicorn src.main:app --host 0.0.0.0 --port 3000 --reload
 
   api:test:
     desc: Run API tests
     dir: api
     cmds:
-      - npm test
+      - python -m pytest tests/ -v
 
   api:test:coverage:
     desc: Run API tests with coverage report
     dir: api
     cmds:
-      - npm run test:coverage
+      - python -m pytest tests/ -v --cov=src --cov-report=term-missing
 
   lint:openapi:
     desc: Lint the OpenAPI spec with Spectral
