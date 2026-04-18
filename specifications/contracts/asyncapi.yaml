@@ -1,0 +1,330 @@
+asyncapi: 2.6.0
+info:
+  title: Pet Insurance Events
+  version: 1.0.0
+  description: |
+    Domain event contract for the **Pet Insurance** domain.
+
+    All events follow the [CloudEvents 1.0](https://cloudevents.io/) specification
+    and are published over AMQP.
+  contact:
+    name: dataGriff
+    email: template@example.com
+
+servers:
+  development:
+    url: amqp://localhost:5672
+    protocol: amqp
+    description: Local RabbitMQ broker
+
+defaultContentType: application/json
+
+tags:
+  - name: Pets
+    description: Events related to pet registration lifecycle
+  - name: Claims
+    description: Events related to claim lifecycle
+
+channels:
+  pet-insurance.pet.registered:
+    description: Published whenever a new pet is registered by a pet owner.
+    publish:
+      operationId: onPetRegistered
+      description: Consume pet registered events.
+      tags:
+        - name: Pets
+      message:
+        $ref: '#/components/messages/PetRegistered'
+
+  pet-insurance.claim.submitted:
+    description: Published whenever a pet owner submits a new insurance claim.
+    publish:
+      operationId: onClaimSubmitted
+      description: Consume claim submitted events.
+      tags:
+        - name: Claims
+      message:
+        $ref: '#/components/messages/ClaimSubmitted'
+
+  pet-insurance.claim.approved:
+    description: Published whenever an agent approves a claim.
+    publish:
+      operationId: onClaimApproved
+      description: Consume claim approved events.
+      tags:
+        - name: Claims
+      message:
+        $ref: '#/components/messages/ClaimApproved'
+
+  pet-insurance.claim.rejected:
+    description: Published whenever an agent rejects a claim.
+    publish:
+      operationId: onClaimRejected
+      description: Consume claim rejected events.
+      tags:
+        - name: Claims
+      message:
+        $ref: '#/components/messages/ClaimRejected'
+
+  pet-insurance.claim.cancelled:
+    description: Published whenever a pet owner cancels a pending claim.
+    publish:
+      operationId: onClaimCancelled
+      description: Consume claim cancelled events.
+      tags:
+        - name: Claims
+      message:
+        $ref: '#/components/messages/ClaimCancelled'
+
+components:
+  messages:
+    PetRegistered:
+      name: PetRegistered
+      title: Pet Registered
+      summary: A new pet has been registered.
+      contentType: application/json
+      payload:
+        $ref: '#/components/schemas/PetRegisteredEvent'
+      examples:
+        - name: pet-registered-example
+          payload:
+            specversion: "1.0"
+            type: pet-insurance.pet.registered
+            source: /pets
+            id: a1b2c3d4-0000-0000-0000-000000000001
+            time: "2026-06-01T09:00:00Z"
+            datacontenttype: application/json
+            data:
+              id: a1b2c3d4-0000-0000-0000-000000000002
+              name: Buddy
+              species: dog
+              breed: Labrador
+              dateOfBirth: "2020-03-15"
+              petOwnerId: a1b2c3d4-0000-0000-0000-000000000003
+              createdAt: "2026-06-01T09:00:00Z"
+              updatedAt: "2026-06-01T09:00:00Z"
+
+    ClaimSubmitted:
+      name: ClaimSubmitted
+      title: Claim Submitted
+      summary: A new insurance claim has been submitted.
+      contentType: application/json
+      payload:
+        $ref: '#/components/schemas/ClaimSubmittedEvent'
+      examples:
+        - name: claim-submitted-example
+          payload:
+            specversion: "1.0"
+            type: pet-insurance.claim.submitted
+            source: /claims
+            id: a1b2c3d4-0000-0000-0000-000000000004
+            time: "2026-06-02T10:00:00Z"
+            datacontenttype: application/json
+            data:
+              id: a1b2c3d4-0000-0000-0000-000000000005
+              petId: a1b2c3d4-0000-0000-0000-000000000002
+              petOwnerId: a1b2c3d4-0000-0000-0000-000000000003
+              amount: 250.00
+              description: Routine check-up and vaccinations
+              status: pending
+              createdAt: "2026-06-02T10:00:00Z"
+              updatedAt: "2026-06-02T10:00:00Z"
+
+    ClaimApproved:
+      name: ClaimApproved
+      title: Claim Approved
+      summary: An insurance claim has been approved by an agent.
+      contentType: application/json
+      payload:
+        $ref: '#/components/schemas/ClaimStatusChangedEvent'
+      examples:
+        - name: claim-approved-example
+          payload:
+            specversion: "1.0"
+            type: pet-insurance.claim.approved
+            source: /claims
+            id: a1b2c3d4-0000-0000-0000-000000000006
+            time: "2026-06-03T11:00:00Z"
+            datacontenttype: application/json
+            data:
+              id: a1b2c3d4-0000-0000-0000-000000000005
+              petId: a1b2c3d4-0000-0000-0000-000000000002
+              petOwnerId: a1b2c3d4-0000-0000-0000-000000000003
+              amount: 250.00
+              description: Routine check-up and vaccinations
+              status: approved
+              createdAt: "2026-06-02T10:00:00Z"
+              updatedAt: "2026-06-03T11:00:00Z"
+
+    ClaimRejected:
+      name: ClaimRejected
+      title: Claim Rejected
+      summary: An insurance claim has been rejected by an agent.
+      contentType: application/json
+      payload:
+        $ref: '#/components/schemas/ClaimStatusChangedEvent'
+      examples:
+        - name: claim-rejected-example
+          payload:
+            specversion: "1.0"
+            type: pet-insurance.claim.rejected
+            source: /claims
+            id: a1b2c3d4-0000-0000-0000-000000000007
+            time: "2026-06-03T12:00:00Z"
+            datacontenttype: application/json
+            data:
+              id: a1b2c3d4-0000-0000-0000-000000000005
+              petId: a1b2c3d4-0000-0000-0000-000000000002
+              petOwnerId: a1b2c3d4-0000-0000-0000-000000000003
+              amount: 250.00
+              description: Routine check-up and vaccinations
+              status: rejected
+              createdAt: "2026-06-02T10:00:00Z"
+              updatedAt: "2026-06-03T12:00:00Z"
+
+    ClaimCancelled:
+      name: ClaimCancelled
+      title: Claim Cancelled
+      summary: A pending claim has been cancelled by the pet owner.
+      contentType: application/json
+      payload:
+        $ref: '#/components/schemas/ClaimCancelledEvent'
+      examples:
+        - name: claim-cancelled-example
+          payload:
+            specversion: "1.0"
+            type: pet-insurance.claim.cancelled
+            source: /claims
+            id: a1b2c3d4-0000-0000-0000-000000000008
+            time: "2026-06-04T08:00:00Z"
+            datacontenttype: application/json
+            data:
+              id: a1b2c3d4-0000-0000-0000-000000000005
+              petOwnerId: a1b2c3d4-0000-0000-0000-000000000003
+              cancelledAt: "2026-06-04T08:00:00Z"
+
+  schemas:
+    CloudEventBase:
+      type: object
+      required: [specversion, type, source, id, time, datacontenttype]
+      properties:
+        specversion:
+          type: string
+          const: "1.0"
+        type:
+          type: string
+          description: Event type in reverse-DNS dot notation
+        source:
+          type: string
+          description: URI reference for the event source
+        id:
+          type: string
+          format: uuid
+        time:
+          type: string
+          format: date-time
+        datacontenttype:
+          type: string
+          const: application/json
+
+    PetData:
+      type: object
+      required: [id, name, species, dateOfBirth, petOwnerId, createdAt, updatedAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        species:
+          type: string
+          enum: [dog, cat, rabbit, bird, other]
+        breed:
+          type: string
+          nullable: true
+        dateOfBirth:
+          type: string
+          format: date
+        petOwnerId:
+          type: string
+          format: uuid
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    ClaimData:
+      type: object
+      required: [id, petId, petOwnerId, amount, description, status, createdAt, updatedAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        petId:
+          type: string
+          format: uuid
+        petOwnerId:
+          type: string
+          format: uuid
+        amount:
+          type: number
+        description:
+          type: string
+        status:
+          type: string
+          enum: [pending, approved, rejected]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    PetRegisteredEvent:
+      allOf:
+        - $ref: '#/components/schemas/CloudEventBase'
+        - type: object
+          required: [data]
+          properties:
+            data:
+              $ref: '#/components/schemas/PetData'
+
+    ClaimSubmittedEvent:
+      allOf:
+        - $ref: '#/components/schemas/CloudEventBase'
+        - type: object
+          required: [data]
+          properties:
+            data:
+              $ref: '#/components/schemas/ClaimData'
+
+    ClaimStatusChangedEvent:
+      allOf:
+        - $ref: '#/components/schemas/CloudEventBase'
+        - type: object
+          required: [data]
+          properties:
+            data:
+              $ref: '#/components/schemas/ClaimData'
+
+    ClaimCancelledEvent:
+      allOf:
+        - $ref: '#/components/schemas/CloudEventBase'
+        - type: object
+          required: [data]
+          properties:
+            data:
+              type: object
+              required: [id, petOwnerId, cancelledAt]
+              properties:
+                id:
+                  type: string
+                  format: uuid
+                petOwnerId:
+                  type: string
+                  format: uuid
+                cancelledAt:
+                  type: string
+                  format: date-time

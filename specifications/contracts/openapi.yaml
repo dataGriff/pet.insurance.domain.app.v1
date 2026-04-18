@@ -1,0 +1,691 @@
+openapi: 3.0.3
+info:
+  title: Pet Insurance API
+  description: |
+    REST API for the **Pet Insurance** domain.
+
+    Allows pet owners to register their pets and submit insurance claims.
+    Allows agents to review, approve, and reject claims.
+
+    ## Authentication
+    Most endpoints require a JWT bearer token. Obtain one via `POST /v1/auth/login`.
+
+    ## Roles
+    - `pet_owner` — can register pets and manage own claims
+    - `agent` — can view pets and process (approve/reject) claims
+  version: 1.0.0
+  contact:
+    name: dataGriff
+    email: template@example.com
+
+servers:
+  - url: http://localhost:3000
+    description: Local development server
+
+tags:
+  - name: Auth
+    description: Authentication — register, login, refresh tokens, and logout
+  - name: Pets
+    description: Pet management — register, view, edit, and remove pets
+  - name: Claims
+    description: Claims management — submit, view, approve, reject, and cancel claims
+
+paths:
+  /v1/auth/register:
+    post:
+      tags: [Auth]
+      summary: Register a new user
+      description: Create a new user account with either `pet_owner` or `agent` role. Returns access and refresh tokens on success.
+      operationId: registerUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      responses:
+        '201':
+          description: User registered successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '409':
+          $ref: '#/components/responses/ConflictError'
+
+  /v1/auth/login:
+    post:
+      tags: [Auth]
+      summary: Log in
+      description: Authenticate with email and password. Returns access and refresh tokens.
+      operationId: loginUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/AuthenticationError'
+
+  /v1/auth/refresh:
+    post:
+      tags: [Auth]
+      summary: Refresh access token
+      description: Exchange a refresh token for a new access token and refresh token pair.
+      operationId: refreshToken
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshRequest'
+      responses:
+        '200':
+          description: Token refreshed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '401':
+          $ref: '#/components/responses/AuthenticationError'
+
+  /v1/auth/logout:
+    post:
+      tags: [Auth]
+      summary: Log out
+      description: Invalidate the current session. Requires a valid bearer token.
+      operationId: logoutUser
+      security:
+        - bearerAuth: []
+      responses:
+        '204':
+          description: Logged out successfully
+        '401':
+          $ref: '#/components/responses/AuthenticationError'
+
+  /v1/pets:
+    get:
+      tags: [Pets]
+      summary: List my pets
+      description: Returns all pets registered by the authenticated pet owner. Agents may not list pets.
+      operationId: listPets
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: List of pets
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Pet'
+        '401':
+          $ref: '#/components/responses/AuthenticationError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+
+    post:
+      tags: [Pets]
+      summary: Register a pet
+      description: Register a new pet. Only `pet_owner` role may register pets.
+      operationId: registerPet
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterPetRequest'
+      responses:
+        '201':
+          description: Pet registered successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Pet'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/AuthenticationError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+
+  /v1/pets/{petId}:
+    get:
+      tags: [Pets]
+      summary: View a pet
+      description: View a single pet. Pet owners may only view their own pets. Agents may view any pet.
+      operationId: getPet
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PetId'
+      responses:
+        '200':
+          description: Pet found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Pet'
+        '401':
+          $ref: '#/components/responses/AuthenticationError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+    patch:
+      tags: [Pets]
+      summary: Edit a pet
+      description: Partially edit a pet. Only the `pet_owner` who registered the pet may edit it.
+      operationId: editPet
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PetId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EditPetRequest'
+      responses:
+        '200':
+          description: Pet edited successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Pet'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/AuthenticationError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+    delete:
+      tags: [Pets]
+      summary: Remove a pet
+      description: Remove a registered pet. Only the `pet_owner` who registered the pet may remove it.
+      operationId: removePet
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PetId'
+      responses:
+        '204':
+          description: Pet removed successfully
+        '401':
+          $ref: '#/components/responses/AuthenticationError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+  /v1/claims:
+    get:
+      tags: [Claims]
+      summary: List claims
+      description: Returns a paginated list of claims. Pet owners see only their own claims; agents see all claims.
+      operationId: listClaims
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+      responses:
+        '200':
+          description: Paginated list of claims
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClaimList'
+        '401':
+          $ref: '#/components/responses/AuthenticationError'
+
+    post:
+      tags: [Claims]
+      summary: Submit a claim
+      description: Submit a new insurance claim for a registered pet. Only `pet_owner` role may submit claims.
+      operationId: submitClaim
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SubmitClaimRequest'
+      responses:
+        '201':
+          description: Claim submitted successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Claim'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/AuthenticationError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+
+  /v1/claims/{claimId}:
+    get:
+      tags: [Claims]
+      summary: View a claim
+      description: View a single claim. Pet owners may only view their own claims. Agents may view any claim.
+      operationId: getClaim
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ClaimId'
+      responses:
+        '200':
+          description: Claim found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Claim'
+        '401':
+          $ref: '#/components/responses/AuthenticationError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+    delete:
+      tags: [Claims]
+      summary: Cancel a claim
+      description: Cancel a pending claim. Only the `pet_owner` who submitted the claim may cancel it. Only `pending` claims can be cancelled.
+      operationId: cancelClaim
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ClaimId'
+      responses:
+        '204':
+          description: Claim cancelled successfully
+        '401':
+          $ref: '#/components/responses/AuthenticationError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '409':
+          $ref: '#/components/responses/ConflictError'
+
+  /v1/claims/{claimId}/approve:
+    post:
+      tags: [Claims]
+      summary: Approve a claim
+      description: Approve a pending claim. Only `agent` role may approve claims. Only `pending` claims can be approved.
+      operationId: approveClaim
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ClaimId'
+      responses:
+        '200':
+          description: Claim approved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Claim'
+        '401':
+          $ref: '#/components/responses/AuthenticationError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '409':
+          $ref: '#/components/responses/ConflictError'
+
+  /v1/claims/{claimId}/reject:
+    post:
+      tags: [Claims]
+      summary: Reject a claim
+      description: Reject a pending claim. Only `agent` role may reject claims. Only `pending` claims can be rejected.
+      operationId: rejectClaim
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ClaimId'
+      responses:
+        '200':
+          description: Claim rejected successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Claim'
+        '401':
+          $ref: '#/components/responses/AuthenticationError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '409':
+          $ref: '#/components/responses/ConflictError'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    PetId:
+      name: petId
+      in: path
+      required: true
+      description: Unique identifier of the pet
+      schema:
+        type: string
+        format: uuid
+
+    ClaimId:
+      name: claimId
+      in: path
+      required: true
+      description: Unique identifier of the claim
+      schema:
+        type: string
+        format: uuid
+
+    Page:
+      name: page
+      in: query
+      required: false
+      description: Page number (1-based)
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+
+    PageSize:
+      name: pageSize
+      in: query
+      required: false
+      description: Number of results per page
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+
+  schemas:
+    RegisterRequest:
+      type: object
+      required: [email, password, firstName, lastName, role]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 8
+        firstName:
+          type: string
+          minLength: 1
+        lastName:
+          type: string
+          minLength: 1
+        role:
+          type: string
+          enum: [pet_owner, agent]
+
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+
+    RefreshRequest:
+      type: object
+      required: [refreshToken]
+      properties:
+        refreshToken:
+          type: string
+
+    AuthResponse:
+      type: object
+      required: [accessToken, refreshToken, expiresIn, user]
+      properties:
+        accessToken:
+          type: string
+        refreshToken:
+          type: string
+        expiresIn:
+          type: integer
+          description: Access token lifetime in seconds
+        user:
+          $ref: '#/components/schemas/UserSummary'
+
+    UserSummary:
+      type: object
+      required: [id, email, firstName, lastName, role]
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        firstName:
+          type: string
+        lastName:
+          type: string
+        role:
+          type: string
+          enum: [pet_owner, agent]
+
+    Pet:
+      type: object
+      required: [id, name, species, dateOfBirth, petOwnerId, createdAt, updatedAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          minLength: 1
+        species:
+          type: string
+          enum: [dog, cat, rabbit, bird, other]
+        breed:
+          type: string
+          nullable: true
+        dateOfBirth:
+          type: string
+          format: date
+          description: Pet's date of birth (YYYY-MM-DD)
+        petOwnerId:
+          type: string
+          format: uuid
+          description: ID of the pet owner who registered this pet
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    RegisterPetRequest:
+      type: object
+      required: [name, species, dateOfBirth]
+      properties:
+        name:
+          type: string
+          minLength: 1
+        species:
+          type: string
+          enum: [dog, cat, rabbit, bird, other]
+        breed:
+          type: string
+          nullable: true
+        dateOfBirth:
+          type: string
+          format: date
+
+    EditPetRequest:
+      type: object
+      minProperties: 1
+      properties:
+        name:
+          type: string
+          minLength: 1
+        breed:
+          type: string
+          nullable: true
+        dateOfBirth:
+          type: string
+          format: date
+
+    Claim:
+      type: object
+      required: [id, petId, petOwnerId, amount, description, status, createdAt, updatedAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        petId:
+          type: string
+          format: uuid
+        petOwnerId:
+          type: string
+          format: uuid
+        amount:
+          type: number
+          format: float
+          minimum: 0.01
+          description: Claimed amount in GBP
+        description:
+          type: string
+          minLength: 1
+        status:
+          type: string
+          enum: [pending, approved, rejected]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    ClaimList:
+      type: object
+      required: [data, pagination]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Claim'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+
+    Pagination:
+      type: object
+      required: [page, pageSize, total]
+      properties:
+        page:
+          type: integer
+        pageSize:
+          type: integer
+        total:
+          type: integer
+
+    SubmitClaimRequest:
+      type: object
+      required: [petId, amount, description]
+      properties:
+        petId:
+          type: string
+          format: uuid
+        amount:
+          type: number
+          format: float
+          minimum: 0.01
+        description:
+          type: string
+          minLength: 1
+
+    Error:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+
+    ValidationError:
+      type: object
+      required: [code, message, details]
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        details:
+          type: array
+          items:
+            type: object
+            required: [field, issue]
+            properties:
+              field:
+                type: string
+              issue:
+                type: string
+
+  responses:
+    ValidationError:
+      description: Request body or parameters failed validation
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ValidationError'
+    AuthenticationError:
+      description: Missing or invalid authentication token
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    ForbiddenError:
+      description: Authenticated user lacks permission for this operation
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    NotFoundError:
+      description: The requested resource was not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    ConflictError:
+      description: A conflict prevented the operation (duplicate resource or invalid status transition)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
