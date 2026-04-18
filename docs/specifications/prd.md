@@ -126,7 +126,7 @@ A user who can browse the item catalogue but cannot make changes.
 
 1. In-memory store only (no database).
 2. No real business domain — items are intentionally generic.
-3. JavaScript (Node.js/Express) only.
+3. Python (FastAPI/Uvicorn) only.
 
 ## Success Metrics
 

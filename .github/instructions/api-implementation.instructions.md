@@ -22,7 +22,7 @@ All entity names, attribute names, and relationship names must exactly match `do
 
 ## Access control
 
-Every route's authentication and role checks must exactly match `docs/specs/auth-matrix.md`. The middleware is in `api/src/middleware/authenticate.js`. Never widen access beyond what the matrix permits.
+Every route's authentication and role checks must exactly match `docs/specs/auth-matrix.md`. The dependency is in `api/src/middleware/authenticate.py`. Never widen access beyond what the matrix permits.
 
 ## REST contract
 
@@ -30,7 +30,7 @@ Route paths, HTTP methods, request bodies, query parameters, and response schema
 
 ## Tests
 
-Each route file has a corresponding test file in `api/tests/`. Tests should cover the access control rules from `docs/specs/auth-matrix.md` — use helpers from `api/tests/helpers.js`.
+Each route file has a corresponding test file in `api/tests/`. Tests should cover the access control rules from `docs/specs/auth-matrix.md` — use helpers from `api/tests/helpers.py`.
 
 ## Business language
 

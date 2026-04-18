@@ -19,11 +19,11 @@
 
 ## Architecture
 
-- **API**: Node.js/Express in `api/`. Entry point `api/src/server.js`, app config `api/src/app.js`.
-- **Auth**: JWT-based. Middleware in `api/src/middleware/authenticate.js`.
+- **API**: Python/FastAPI in `api/`. Entry point `api/server.py`, app config `api/src/main.py`.
+- **Auth**: JWT-based. Dependency in `api/src/middleware/authenticate.py`.
 - **Routes**: One file per resource in `api/src/routes/`.
-- **Store**: In-memory store in `api/src/store.js` (no database).
-- **Tests**: Per-route test files in `api/tests/`. Use helpers from `api/tests/helpers.js`.
+- **Store**: In-memory store in `api/src/store.py` (no database).
+- **Tests**: Per-route test files in `api/tests/`. Use helpers from `api/tests/helpers.py`.
 
 ---
 

@@ -1,6 +1,6 @@
 # Domain API Template
 
-A spec-driven, contract-first REST API template for Node.js/Express.
+A spec-driven, contract-first REST API template built with Python/FastAPI.
 Write your specs first — then implement. The **Items** example domain shows every pattern in action.
 
 ---
@@ -30,7 +30,7 @@ Always use `task` — never run raw `npm`, `curl`, or `spectral` directly.
 
 ```bash
 task                # list all available tasks
-task api:install    # install npm dependencies
+task api:install    # install Python dependencies (pip)
 task api:dev        # start dev server on http://localhost:3000
 task api:test       # run all tests
 task lint           # lint OpenAPI + AsyncAPI contracts
@@ -46,13 +46,13 @@ task docs:serve     # serve this documentation site locally
 
 | Layer | Location | Description |
 |-------|----------|-------------|
-| Entry point | `api/src/server.js` | Starts the Express server |
-| App config | `api/src/app.js` | CORS, rate limiting, OpenAPI validation middleware |
-| Auth | `api/src/auth.js` · `api/src/middleware/authenticate.js` | JWT signing/verification and `requireRole` helper |
+| Entry point | `api/server.py` | Starts the Uvicorn server |
+| App config | `api/src/main.py` | CORS, rate limiting, routes, exception handling |
+| Auth | `api/src/auth.py` · `api/src/middleware/authenticate.py` | JWT signing/verification and `require_role` dependency |
 | Routes | `api/src/routes/` | One file per resource |
-| Store | `api/src/store.js` | In-memory store (no database) |
-| Error handling | `api/src/middleware/errorHandler.js` | Centralised error handler |
-| Tests | `api/tests/` | Per-route integration tests using `api/tests/helpers.js` |
+| Store | `api/src/store.py` | In-memory store (no database) |
+| Models | `api/src/models.py` | Pydantic request/response models |
+| Tests | `api/tests/` | Per-route integration tests using `api/tests/helpers.py` |
 
 ---
 
@@ -87,7 +87,7 @@ Replace it entirely when you instantiate the template for a real domain.
 2. `task api:install`
 3. `task domain:init` — copies blank spec templates into `docs/specifications/`
 4. Fill in each spec file (start with `prd.md`, then `domain-model.md`, `auth-matrix.md`, `sequence-diagrams.md`, finally the contracts)
-5. Update `api/src/store.js` with your domain's entities
+5. Update `api/src/store.py` and `api/src/models.py` with your domain's entities
 6. Replace `api/src/routes/` and `api/tests/` with your domain's routes and tests
 7. `task domain:check` — all green ✓
 8. Update `README.md`, `AGENTS.md`, and this file (`docs/index.md`) for your domain
