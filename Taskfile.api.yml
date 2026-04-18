@@ -1,0 +1,232 @@
+version: '3'
+
+vars:
+  BASE_URL: http://localhost:3000/v1
+  STATE: .demo-state
+
+tasks:
+
+  # ---------------------------------------------------------------------------
+  # STATE MANAGEMENT
+  # ---------------------------------------------------------------------------
+
+  state:clear:
+    desc: Clear all saved demo state (tokens, IDs)
+    cmds:
+      - rm -f {{.STATE}}
+      - touch {{.STATE}}
+      - echo "DEMO_ID=$(date +%s)" >> {{.STATE}}
+      - echo "Demo state cleared."
+
+  # ---------------------------------------------------------------------------
+  # AUTH
+  # ---------------------------------------------------------------------------
+
+  auth:register:contributor:
+    desc: Register a contributor (saves CONTRIBUTOR_TOKEN)
+    vars:
+      DEMO_ID:
+        sh: grep '^DEMO_ID=' {{.STATE}} 2>/dev/null | cut -d= -f2-
+    cmds:
+      - |
+        RESPONSE=$(curl -s -X POST {{.BASE_URL}}/auth/register \
+          -H "Content-Type: application/json" \
+          -d "{
+            \"email\": \"contributor.{{.DEMO_ID}}@example.com\",
+            \"password\": \"password123\",
+            \"firstName\": \"Alice\",
+            \"lastName\": \"Contributor\",
+            \"role\": \"contributor\"
+          }")
+        echo "$RESPONSE" | jq .
+        TOKEN=$(echo "$RESPONSE" | jq -r '.accessToken')
+        grep -v "^CONTRIBUTOR_TOKEN=" {{.STATE}} > {{.STATE}}.tmp 2>/dev/null || true
+        echo "CONTRIBUTOR_TOKEN=$TOKEN" >> {{.STATE}}.tmp
+        mv {{.STATE}}.tmp {{.STATE}}
+
+  auth:register:viewer:
+    desc: Register a viewer (saves VIEWER_TOKEN)
+    vars:
+      DEMO_ID:
+        sh: grep '^DEMO_ID=' {{.STATE}} 2>/dev/null | cut -d= -f2-
+    cmds:
+      - |
+        RESPONSE=$(curl -s -X POST {{.BASE_URL}}/auth/register \
+          -H "Content-Type: application/json" \
+          -d "{
+            \"email\": \"viewer.{{.DEMO_ID}}@example.com\",
+            \"password\": \"password123\",
+            \"firstName\": \"Bob\",
+            \"lastName\": \"Viewer\",
+            \"role\": \"viewer\"
+          }")
+        echo "$RESPONSE" | jq .
+        TOKEN=$(echo "$RESPONSE" | jq -r '.accessToken')
+        grep -v "^VIEWER_TOKEN=" {{.STATE}} > {{.STATE}}.tmp 2>/dev/null || true
+        echo "VIEWER_TOKEN=$TOKEN" >> {{.STATE}}.tmp
+        mv {{.STATE}}.tmp {{.STATE}}
+
+  auth:login:contributor:
+    desc: Login as contributor (saves CONTRIBUTOR_TOKEN)
+    vars:
+      DEMO_ID:
+        sh: grep '^DEMO_ID=' {{.STATE}} 2>/dev/null | cut -d= -f2-
+    cmds:
+      - |
+        RESPONSE=$(curl -s -X POST {{.BASE_URL}}/auth/login \
+          -H "Content-Type: application/json" \
+          -d "{
+            \"email\": \"contributor.{{.DEMO_ID}}@example.com\",
+            \"password\": \"password123\"
+          }")
+        echo "$RESPONSE" | jq .
+        TOKEN=$(echo "$RESPONSE" | jq -r '.accessToken')
+        grep -v "^CONTRIBUTOR_TOKEN=" {{.STATE}} > {{.STATE}}.tmp 2>/dev/null || true
+        echo "CONTRIBUTOR_TOKEN=$TOKEN" >> {{.STATE}}.tmp
+        mv {{.STATE}}.tmp {{.STATE}}
+
+  auth:logout:
+    desc: Logout (invalidate the contributor session)
+    vars:
+      CONTRIBUTOR_TOKEN:
+        sh: grep '^CONTRIBUTOR_TOKEN=' {{.STATE}} 2>/dev/null | cut -d= -f2-
+    cmds:
+      - |
+        curl -s -X POST {{.BASE_URL}}/auth/logout \
+          -H "Authorization: Bearer {{.CONTRIBUTOR_TOKEN}}"
+        echo "Logged out."
+
+  # ---------------------------------------------------------------------------
+  # ITEMS
+  # ---------------------------------------------------------------------------
+
+  items:list:
+    desc: List all items (uses CONTRIBUTOR_TOKEN)
+    vars:
+      CONTRIBUTOR_TOKEN:
+        sh: grep '^CONTRIBUTOR_TOKEN=' {{.STATE}} 2>/dev/null | cut -d= -f2-
+    cmds:
+      - |
+        curl -s -X GET {{.BASE_URL}}/items \
+          -H "Authorization: Bearer {{.CONTRIBUTOR_TOKEN}}" | jq .
+
+  items:create:
+    desc: Add a new item to the catalogue (saves ITEM_ID)
+    vars:
+      DEMO_ID:
+        sh: grep '^DEMO_ID=' {{.STATE}} 2>/dev/null | cut -d= -f2-
+      CONTRIBUTOR_TOKEN:
+        sh: grep '^CONTRIBUTOR_TOKEN=' {{.STATE}} 2>/dev/null | cut -d= -f2-
+    cmds:
+      - |
+        RESPONSE=$(curl -s -X POST {{.BASE_URL}}/items \
+          -H "Content-Type: application/json" \
+          -H "Authorization: Bearer {{.CONTRIBUTOR_TOKEN}}" \
+          -d "{
+            \"name\": \"Demo Item {{.DEMO_ID}}\",
+            \"description\": \"An item added during the demo run.\"
+          }")
+        echo "$RESPONSE" | jq .
+        ITEM_ID=$(echo "$RESPONSE" | jq -r '.id')
+        grep -v "^ITEM_ID=" {{.STATE}} > {{.STATE}}.tmp 2>/dev/null || true
+        echo "ITEM_ID=$ITEM_ID" >> {{.STATE}}.tmp
+        mv {{.STATE}}.tmp {{.STATE}}
+
+  items:get:
+    desc: Get the demo item by ID
+    vars:
+      CONTRIBUTOR_TOKEN:
+        sh: grep '^CONTRIBUTOR_TOKEN=' {{.STATE}} 2>/dev/null | cut -d= -f2-
+      ITEM_ID:
+        sh: grep '^ITEM_ID=' {{.STATE}} 2>/dev/null | cut -d= -f2-
+    cmds:
+      - |
+        curl -s -X GET {{.BASE_URL}}/items/{{.ITEM_ID}} \
+          -H "Authorization: Bearer {{.CONTRIBUTOR_TOKEN}}" | jq .
+
+  items:update:
+    desc: Archive the demo item
+    vars:
+      CONTRIBUTOR_TOKEN:
+        sh: grep '^CONTRIBUTOR_TOKEN=' {{.STATE}} 2>/dev/null | cut -d= -f2-
+      ITEM_ID:
+        sh: grep '^ITEM_ID=' {{.STATE}} 2>/dev/null | cut -d= -f2-
+    cmds:
+      - |
+        curl -s -X PATCH {{.BASE_URL}}/items/{{.ITEM_ID}} \
+          -H "Content-Type: application/json" \
+          -H "Authorization: Bearer {{.CONTRIBUTOR_TOKEN}}" \
+          -d '{"status": "archived"}' | jq .
+
+  items:delete:
+    desc: Remove the demo item from the catalogue
+    vars:
+      CONTRIBUTOR_TOKEN:
+        sh: grep '^CONTRIBUTOR_TOKEN=' {{.STATE}} 2>/dev/null | cut -d= -f2-
+      ITEM_ID:
+        sh: grep '^ITEM_ID=' {{.STATE}} 2>/dev/null | cut -d= -f2-
+    cmds:
+      - |
+        STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X DELETE \
+          {{.BASE_URL}}/items/{{.ITEM_ID}} \
+          -H "Authorization: Bearer {{.CONTRIBUTOR_TOKEN}}")
+        echo "DELETE /items/{{.ITEM_ID}} → HTTP $STATUS"
+
+  items:list:viewer:
+    desc: List items as a viewer (demonstrates read-only access)
+    vars:
+      VIEWER_TOKEN:
+        sh: grep '^VIEWER_TOKEN=' {{.STATE}} 2>/dev/null | cut -d= -f2-
+    cmds:
+      - |
+        curl -s -X GET {{.BASE_URL}}/items \
+          -H "Authorization: Bearer {{.VIEWER_TOKEN}}" | jq .
+
+  items:create:viewer:
+    desc: Attempt to add an item as a viewer (expects 403 Forbidden)
+    vars:
+      VIEWER_TOKEN:
+        sh: grep '^VIEWER_TOKEN=' {{.STATE}} 2>/dev/null | cut -d= -f2-
+    cmds:
+      - |
+        echo "Attempting to add as viewer (should be 403):"
+        curl -s -X POST {{.BASE_URL}}/items \
+          -H "Content-Type: application/json" \
+          -H "Authorization: Bearer {{.VIEWER_TOKEN}}" \
+          -d '{"name": "Forbidden Item"}' | jq .
+
+  # ---------------------------------------------------------------------------
+  # DEMO WORKFLOW
+  # ---------------------------------------------------------------------------
+
+  demo:
+    desc: Run the full end-to-end demo workflow
+    cmds:
+      - task: state:clear
+      - echo ""
+      - echo "=== 1. Register contributor and viewer ==="
+      - task: auth:register:contributor
+      - task: auth:register:viewer
+      - echo ""
+      - echo "=== 2. Contributor adds an item ==="
+      - task: items:create
+      - echo ""
+      - echo "=== 3. List items (contributor view) ==="
+      - task: items:list
+      - echo ""
+      - echo "=== 4. Viewer lists items (read-only) ==="
+      - task: items:list:viewer
+      - echo ""
+      - echo "=== 5. Viewer tries to add (expect 403) ==="
+      - task: items:create:viewer
+      - echo ""
+      - echo "=== 6. Get specific item ==="
+      - task: items:get
+      - echo ""
+      - echo "=== 7. Edit item (archive it) ==="
+      - task: items:update
+      - echo ""
+      - echo "=== 8. Remove item ==="
+      - task: items:delete
+      - echo ""
+      - echo "=== Demo complete ==="

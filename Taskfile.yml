@@ -1,0 +1,120 @@
+version: '3'
+
+includes:
+  api:
+    taskfile: ./Taskfile.api.yml
+    optional: true
+
+tasks:
+  default:
+    desc: List available tasks
+    cmds:
+      - task --list
+
+  api:install:
+    desc: Install API dependencies
+    dir: api
+    cmds:
+      - npm ci
+
+  api:start:
+    desc: Start the API server
+    dir: api
+    cmds:
+      - npm start
+
+  api:dev:
+    desc: Start the API in development mode with nodemon
+    dir: api
+    env:
+      CORS_ORIGINS: 'http://localhost:8000,http://127.0.0.1:8000'
+    cmds:
+      - npm run dev
+
+  api:test:
+    desc: Run API tests
+    dir: api
+    cmds:
+      - npm test
+
+  api:test:coverage:
+    desc: Run API tests with coverage report
+    dir: api
+    cmds:
+      - npm run test:coverage
+
+  lint:openapi:
+    desc: Lint the OpenAPI spec with Spectral
+    cmds:
+      - spectral lint docs/specifications/contracts/openapi.yaml --ruleset .spectral-openapi.yaml
+
+  lint:asyncapi:
+    desc: Lint the AsyncAPI spec with Spectral
+    cmds:
+      - spectral lint docs/specifications/contracts/asyncapi.yaml --ruleset .spectral-asyncapi.yaml
+
+  lint:
+    desc: Run all linting (OpenAPI + AsyncAPI)
+    cmds:
+      - task: lint:openapi
+      - task: lint:asyncapi
+
+  docs:serve:
+    desc: Serve the MkDocs site locally
+    cmds:
+      - mkdocs serve
+
+  docs:build:
+    desc: Build the MkDocs site
+    cmds:
+      - mkdocs build
+
+  docs:deploy:
+    desc: Deploy docs to GitHub Pages
+    cmds:
+      - mkdocs gh-deploy --force
+
+  domain:init:
+    desc: Copy blank spec templates into docs/specifications/ (safe — does not overwrite unless FORCE=true)
+    vars:
+      FORCE: '{{.FORCE | default "false"}}'
+    cmds:
+      - |
+        TEMPLATE_DIR="docs/specifications/_template"
+        TARGET_DIR="docs/specifications"
+        FORCE="{{.FORCE}}"
+
+        if [ ! -d "$TEMPLATE_DIR" ]; then
+          echo "ERROR: Template directory '$TEMPLATE_DIR' not found."
+          exit 1
+        fi
+
+        echo "Copying spec templates from $TEMPLATE_DIR → $TARGET_DIR"
+
+        copy_file() {
+          local src="$1"
+          local dst="$2"
+          mkdir -p "$(dirname "$dst")"
+          if [ -f "$dst" ] && [ "$FORCE" != "true" ]; then
+            echo "  SKIP (exists): $dst  (use FORCE=true to overwrite)"
+          else
+            cp "$src" "$dst"
+            echo "  COPIED: $dst"
+          fi
+        }
+
+        find "$TEMPLATE_DIR" -type f | while read -r src; do
+          rel="${src#$TEMPLATE_DIR/}"
+          dst="$TARGET_DIR/$rel"
+          copy_file "$src" "$dst"
+        done
+
+        echo ""
+        echo "Done. Edit the files in $TARGET_DIR to describe your domain."
+        echo "Then run: task domain:check"
+
+  domain:check:
+    desc: Validate the domain — runs lint (OpenAPI + AsyncAPI) and all API tests
+    cmds:
+      - task: lint
+      - task: api:test
