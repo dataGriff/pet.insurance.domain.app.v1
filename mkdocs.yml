@@ -1,8 +1,8 @@
-site_name: Domain API Docs
-site_url: https://datagriff.github.io/domain-api-template/
+site_name: Pet Insurance API Docs
+site_url: https://datagriff.github.io/pet.insurance.domain.app.v1/
 docs_dir: docs
-repo_url: https://github.com/dataGriff/domain-api-template
-repo_name: dataGriff/domain-api-template
+repo_url: https://github.com/dataGriff/pet.insurance.domain.app.v1
+repo_name: dataGriff/pet.insurance.domain.app.v1
 
 theme:
   name: material

@@ -1,68 +1,102 @@
-# domain-api-template
+# pet.insurance.domain.app.v1
 
-A **GitHub Template repository** for building spec-driven, contract-first REST APIs with Node.js/Express.
-Write your specs first — then implement to match.
+A **spec-driven, contract-first Pet Insurance REST API** built with Python/FastAPI.
 
-> **Full documentation:** [`docs/index.md`](docs/index.md) (also published as a [MkDocs site](https://datagriff.github.io/domain-api-template/)).
+Pet owners can register their pets and submit insurance claims. Agents review, approve, or reject claims.
+
+> **Full documentation:** [`docs/index.md`](docs/index.md)
 
 ---
 
 ## Quick Start
 
 ```bash
-# 1. Create a new repo from this template (click "Use this template" on GitHub)
-# 2. Then:
-task api:install        # install dependencies
-task domain:init        # copy blank spec templates into docs/specifications/
-# 3. Edit files in docs/specifications/ for your domain
-task domain:check       # lint contracts + run all tests
+task api:install   # install Python dependencies
+task api:test      # run all tests
+task lint          # lint OpenAPI + AsyncAPI contracts
+task domain:check  # lint + test in one step
 ```
 
-See [`docs/index.md`](docs/index.md) for the full architecture overview, task reference, key principles, and bootstrap guide.
+To run the API server locally:
+
+```bash
+task api:dev       # start Uvicorn with hot reload (port 3000)
+```
+
+Then exercise the full domain via the demo workflow:
+
+```bash
+task api:demo      # run the end-to-end pet insurance demo
+```
 
 ---
 
-## New Domain Checklist
+## Domain
 
-- [ ] Create repo from template ("Use this template" on GitHub)
-- [ ] Update `api/package.json` name/description and `mkdocs.yml` site name
-- [ ] `task api:install`
-- [ ] `task domain:init`
-- [ ] Fill in `docs/specifications/prd.md`
-- [ ] Fill in `docs/specifications/domain-model.md`
-- [ ] Fill in `docs/specifications/auth-matrix.md`
-- [ ] Fill in `docs/specifications/sequence-diagrams.md`
-- [ ] Fill in `docs/specifications/contracts/openapi.yaml`
-- [ ] Fill in `docs/specifications/contracts/asyncapi.yaml`
-- [ ] Update `api/src/store.js` with domain entities
-- [ ] Replace `api/src/routes/` with domain routes
-- [ ] Replace `api/tests/` with domain tests
-- [ ] `task domain:check` — all green ✓
-- [ ] Update `README.md`, `AGENTS.md`, and `docs/index.md` for your domain
-- [ ] Enable "Template repository" in GitHub Settings if reusing as a template
+### Roles
 
----
+| Role | Description |
+|------|-------------|
+| `pet_owner` | Registers pets and submits/cancels claims |
+| `agent` | Reviews and approves or rejects claims |
 
-## What's in the Box
+### Resources
 
-| Area | Location | Keep or replace? |
-|------|----------|-----------------|
-| Express app setup | `api/src/app.js` | **Keep** |
-| JWT auth + middleware | `api/src/auth.js`, `api/src/middleware/` | **Keep** |
-| Error handler | `api/src/middleware/errorHandler.js` | **Keep** |
-| Test helpers | `api/tests/helpers.js` | Extend |
-| Taskfiles | `Taskfile.yml`, `Taskfile.api.yml` | Extend |
-| Spec linting | `.spectral-openapi.yaml`, `.spectral-asyncapi.yaml` | **Keep** |
-| CI workflows | `.github/workflows/` | **Keep** |
-| AI guidelines | `.github/instructions/`, `AGENTS.md` | Update for your domain |
-| **Items example** | `api/src/routes/items.js`, `api/src/store.js`, `api/tests/`, `docs/specifications/` | **Replace** |
-| Blank spec templates | `docs/specifications/_template/` | **Keep** (source for `domain:init`) |
+| Resource | Path | Description |
+|----------|------|-------------|
+| Pets | `/v1/pets` | Register and manage pets |
+| Claims | `/v1/claims` | Submit and manage insurance claims |
+
+### Claim Status Lifecycle
+
+```
+pending ──► approved
+pending ──► rejected
+pending ──► [cancelled / removed]
+```
 
 ---
 
-## GitHub Template Repository
+## Architecture
 
-To enable the **Use this template** button on a fork:
+- **Python/FastAPI** + Uvicorn
+- **JWT authentication** (access + refresh tokens)
+- **Role-based access control** (`pet_owner`, `agent`)
+- **In-memory store** — resets on restart
+- **Specs-first** — all routes and schemas derive from `docs/specifications/`
 
-1. Go to **Settings → General**
-2. Check **Template repository**
+---
+
+## Project Structure
+
+```
+api/
+  src/
+    main.py               # FastAPI app (CORS, rate limiting, routes)
+    server.py             # Uvicorn entry point
+    auth.py               # JWT sign/verify utilities
+    store.py              # In-memory store (users, pets, claims)
+    models.py             # Pydantic request/response models
+    middleware/
+      authenticate.py     # JWT dependency + require_role helper
+    routes/
+      auth.py             # Register, login, refresh, logout
+      pets.py             # Register, list, view, edit, remove pets
+      claims.py           # Submit, list, view, approve, reject, cancel claims
+  tests/
+    conftest.py           # Store reset fixture
+    helpers.py            # create_pet_owner_token, create_agent_token, seed_pet, seed_claim
+    test_auth.py          # Auth route tests
+    test_pets.py          # Pets route tests
+    test_claims.py        # Claims route tests
+    test_contract.py      # Response shape / contract tests
+docs/
+  specifications/
+    prd.md                # Product requirements
+    domain-model.md       # Pet + Claim entity definitions
+    auth-matrix.md        # Role-based access control rules
+    sequence-diagrams.md  # Key interaction flows (Mermaid)
+    contracts/
+      openapi.yaml        # REST API contract
+      asyncapi.yaml       # Domain event contract
+```

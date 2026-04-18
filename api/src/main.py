@@ -1,7 +1,8 @@
 """FastAPI application — CORS, rate limiting, routes, and error handling."""
 import os
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.exception_handlers import http_exception_handler as _default_http_handler
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from slowapi import Limiter, _rate_limit_exceeded_handler
@@ -9,13 +10,14 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
 
 from src.routes.auth import router as auth_router
-from src.routes.items import router as items_router
+from src.routes.claims import router as claims_router
+from src.routes.pets import router as pets_router
 
 # ---------------------------------------------------------------------------
 # Rate limiter
 # ---------------------------------------------------------------------------
 limiter = Limiter(key_func=get_remote_address, default_limits=["500/15minutes"])
-app = FastAPI(title="Domain API", version="1.0.0")
+app = FastAPI(title="Pet Insurance API", version="1.0.0")
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
@@ -37,13 +39,12 @@ app.add_middleware(
 # Routes
 # ---------------------------------------------------------------------------
 app.include_router(auth_router, prefix="/v1")
-app.include_router(items_router, prefix="/v1")
+app.include_router(pets_router, prefix="/v1")
+app.include_router(claims_router, prefix="/v1")
 
 # ---------------------------------------------------------------------------
 # Custom exception handler — map HTTPException detail dicts to flat JSON
 # ---------------------------------------------------------------------------
-from fastapi import HTTPException
-from fastapi.exception_handlers import http_exception_handler as _default_http_handler
 
 
 @app.exception_handler(HTTPException)

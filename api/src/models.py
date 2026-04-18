@@ -1,4 +1,4 @@
-"""Pydantic models for request bodies and response shapes."""
+"""Pydantic models for the pet insurance domain API."""
 from __future__ import annotations
 
 from enum import Enum
@@ -8,13 +8,22 @@ from pydantic import BaseModel, EmailStr
 
 
 class Role(str, Enum):
-    contributor = "contributor"
-    viewer = "viewer"
+    pet_owner = "pet_owner"
+    agent = "agent"
 
 
-class ItemStatus(str, Enum):
-    active = "active"
-    archived = "archived"
+class Species(str, Enum):
+    dog = "dog"
+    cat = "cat"
+    rabbit = "rabbit"
+    bird = "bird"
+    other = "other"
+
+
+class ClaimStatus(str, Enum):
+    pending = "pending"
+    approved = "approved"
+    rejected = "rejected"
 
 
 # ---------------------------------------------------------------------------
@@ -54,15 +63,44 @@ class AuthResponse(BaseModel):
 
 
 # ---------------------------------------------------------------------------
-# Item request/response models
+# Pet request/response models
 # ---------------------------------------------------------------------------
 
-class Item(BaseModel):
+class Pet(BaseModel):
     id: str
     name: str
-    description: Optional[str] = None
-    status: ItemStatus
-    contributorId: str
+    species: Species
+    breed: Optional[str] = None
+    dateOfBirth: str
+    petOwnerId: str
+    createdAt: str
+    updatedAt: str
+
+
+class RegisterPetRequest(BaseModel):
+    name: str
+    species: Species
+    breed: Optional[str] = None
+    dateOfBirth: str
+
+
+class EditPetRequest(BaseModel):
+    name: Optional[str] = None
+    breed: Optional[str] = None
+    dateOfBirth: Optional[str] = None
+
+
+# ---------------------------------------------------------------------------
+# Claim request/response models
+# ---------------------------------------------------------------------------
+
+class Claim(BaseModel):
+    id: str
+    petId: str
+    petOwnerId: str
+    amount: float
+    description: str
+    status: ClaimStatus
     createdAt: str
     updatedAt: str
 
@@ -73,24 +111,19 @@ class Pagination(BaseModel):
     total: int
 
 
-class ItemList(BaseModel):
-    data: List[Item]
+class ClaimList(BaseModel):
+    data: List[Claim]
     pagination: Pagination
 
 
-class CreateItemRequest(BaseModel):
-    name: str
-    description: Optional[str] = None
-
-
-class UpdateItemRequest(BaseModel):
-    name: Optional[str] = None
-    description: Optional[str] = None
-    status: Optional[ItemStatus] = None
+class SubmitClaimRequest(BaseModel):
+    petId: str
+    amount: float
+    description: str
 
 
 # ---------------------------------------------------------------------------
-# Error models
+# Error model
 # ---------------------------------------------------------------------------
 
 class ErrorResponse(BaseModel):

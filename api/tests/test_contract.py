@@ -3,7 +3,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from src.main import app
-from tests.helpers import create_contributor_token, create_viewer_token, seed_item
+from tests.helpers import auth_header, create_pet_owner_token, create_agent_token, seed_pet, seed_claim
 
 
 @pytest.fixture
@@ -12,25 +12,26 @@ def client():
         yield c
 
 
-class TestAuthEndpoints:
+class TestAuthShapes:
     def test_register_returns_201_with_auth_response_shape(self, client):
         res = client.post("/v1/auth/register", json={
             "email": "test@example.com",
             "password": "password123",
             "firstName": "Test",
             "lastName": "User",
-            "role": "contributor",
+            "role": "pet_owner",
         })
         assert res.status_code == 201
         body = res.json()
         assert "accessToken" in body
         assert "refreshToken" in body
         assert "expiresIn" in body
-        assert "id" in body["user"]
-        assert "email" in body["user"]
-        assert "firstName" in body["user"]
-        assert "lastName" in body["user"]
-        assert "role" in body["user"]
+        user = body["user"]
+        assert "id" in user
+        assert "email" in user
+        assert "firstName" in user
+        assert "lastName" in user
+        assert user["role"] == "pet_owner"
 
     def test_login_returns_200_with_auth_response_shape(self, client):
         client.post("/v1/auth/register", json={
@@ -38,7 +39,7 @@ class TestAuthEndpoints:
             "password": "password123",
             "firstName": "T",
             "lastName": "U",
-            "role": "viewer",
+            "role": "agent",
         })
         res = client.post("/v1/auth/login", json={
             "email": "test2@example.com",
@@ -51,132 +52,144 @@ class TestAuthEndpoints:
         assert "expiresIn" in body
         assert "id" in body["user"]
 
-    def test_logout_returns_204(self, client):
-        contrib = create_contributor_token()
+
+class TestPetShapes:
+    def test_register_pet_returns_201_with_pet_shape(self, client):
+        owner = create_pet_owner_token()
         res = client.post(
-            "/v1/auth/logout",
-            headers={"Authorization": f"Bearer {contrib['token']}"},
-        )
-        assert res.status_code == 204
-
-    def test_refresh_returns_200_with_auth_response_shape(self, client):
-        reg = client.post("/v1/auth/register", json={
-            "email": "refresh@example.com",
-            "password": "password123",
-            "firstName": "R",
-            "lastName": "T",
-            "role": "contributor",
-        })
-        res = client.post("/v1/auth/refresh", json={"refreshToken": reg.json()["refreshToken"]})
-        assert res.status_code == 200
-        body = res.json()
-        assert "accessToken" in body
-        assert "refreshToken" in body
-
-
-class TestItemEndpoints:
-    def test_list_items_returns_200_with_item_list_shape(self, client):
-        contrib = create_contributor_token()
-        res = client.get("/v1/items", headers={"Authorization": f"Bearer {contrib['token']}"})
-        assert res.status_code == 200
-        body = res.json()
-        assert "data" in body
-        assert "pagination" in body
-        assert "page" in body["pagination"]
-        assert "pageSize" in body["pagination"]
-        assert "total" in body["pagination"]
-
-    def test_add_item_returns_201_with_item_shape(self, client):
-        contrib = create_contributor_token()
-        res = client.post(
-            "/v1/items",
-            json={"name": "Shape Test Item"},
-            headers={"Authorization": f"Bearer {contrib['token']}"},
+            "/v1/pets",
+            json={"name": "Buddy", "species": "dog", "dateOfBirth": "2020-03-15"},
+            headers=auth_header(owner["token"]),
         )
         assert res.status_code == 201
         body = res.json()
         assert "id" in body
-        assert body["name"] == "Shape Test Item"
-        assert body["description"] is None
-        assert body["status"] == "active"
-        assert "contributorId" in body
+        assert body["name"] == "Buddy"
+        assert body["species"] == "dog"
+        assert body["breed"] is None
+        assert body["dateOfBirth"] == "2020-03-15"
+        assert "petOwnerId" in body
         assert "createdAt" in body
         assert "updatedAt" in body
 
-    def test_get_item_returns_200_with_item_shape(self, client):
-        contrib = create_contributor_token()
-        item = seed_item(contrib["user"]["id"])
-        res = client.get(
-            f"/v1/items/{item['id']}",
-            headers={"Authorization": f"Bearer {contrib['token']}"},
-        )
+    def test_list_pets_returns_200_with_array_of_pet_shape(self, client):
+        owner = create_pet_owner_token()
+        seed_pet(owner["user"]["id"])
+        res = client.get("/v1/pets", headers=auth_header(owner["token"]))
         assert res.status_code == 200
-        body = res.json()
-        assert body["id"] == item["id"]
+        assert isinstance(res.json(), list)
+        body = res.json()[0]
+        assert "id" in body
         assert "name" in body
-        assert "status" in body
-        assert "contributorId" in body
+        assert "species" in body
+        assert "petOwnerId" in body
 
-    def test_edit_item_returns_200_with_edited_item_shape(self, client):
-        contrib = create_contributor_token()
-        item = seed_item(contrib["user"]["id"])
-        res = client.patch(
-            f"/v1/items/{item['id']}",
-            json={"name": "Patched Item", "status": "archived"},
-            headers={"Authorization": f"Bearer {contrib['token']}"},
-        )
+    def test_get_pet_returns_200_with_pet_shape(self, client):
+        owner = create_pet_owner_token()
+        pet = seed_pet(owner["user"]["id"])
+        res = client.get(f"/v1/pets/{pet['id']}", headers=auth_header(owner["token"]))
         assert res.status_code == 200
         body = res.json()
-        assert body["name"] == "Patched Item"
-        assert body["status"] == "archived"
+        assert body["id"] == pet["id"]
+        assert "species" in body
+        assert "petOwnerId" in body
+
+
+class TestClaimShapes:
+    def test_submit_claim_returns_201_with_claim_shape(self, client):
+        owner = create_pet_owner_token()
+        pet = seed_pet(owner["user"]["id"])
+        res = client.post(
+            "/v1/claims",
+            json={"petId": pet["id"], "amount": 150.00, "description": "Dental treatment"},
+            headers=auth_header(owner["token"]),
+        )
+        assert res.status_code == 201
+        body = res.json()
+        assert "id" in body
+        assert body["petId"] == pet["id"]
+        assert body["amount"] == 150.00
+        assert body["status"] == "pending"
+        assert "petOwnerId" in body
+        assert "createdAt" in body
         assert "updatedAt" in body
 
-    def test_remove_item_returns_204(self, client):
-        contrib = create_contributor_token()
-        item = seed_item(contrib["user"]["id"])
-        res = client.delete(
-            f"/v1/items/{item['id']}",
-            headers={"Authorization": f"Bearer {contrib['token']}"},
+    def test_list_claims_returns_200_with_claim_list_shape(self, client):
+        owner = create_pet_owner_token()
+        res = client.get("/v1/claims", headers=auth_header(owner["token"]))
+        assert res.status_code == 200
+        body = res.json()
+        assert "data" in body
+        assert "pagination" in body
+        pagination = body["pagination"]
+        assert "page" in pagination
+        assert "pageSize" in pagination
+        assert "total" in pagination
+
+    def test_approve_claim_returns_200_with_updated_claim_shape(self, client):
+        owner = create_pet_owner_token()
+        pet = seed_pet(owner["user"]["id"])
+        claim = seed_claim(pet["id"], owner["user"]["id"])
+        agent = create_agent_token()
+        res = client.post(
+            f"/v1/claims/{claim['id']}/approve",
+            headers=auth_header(agent["token"]),
         )
-        assert res.status_code == 204
+        assert res.status_code == 200
+        body = res.json()
+        assert body["status"] == "approved"
+        assert "updatedAt" in body
+
+    def test_reject_claim_returns_200_with_updated_claim_shape(self, client):
+        owner = create_pet_owner_token()
+        pet = seed_pet(owner["user"]["id"])
+        claim = seed_claim(pet["id"], owner["user"]["id"])
+        agent = create_agent_token()
+        res = client.post(
+            f"/v1/claims/{claim['id']}/reject",
+            headers=auth_header(agent["token"]),
+        )
+        assert res.status_code == 200
+        body = res.json()
+        assert body["status"] == "rejected"
 
 
-class TestErrorResponses:
+class TestErrorShapes:
     def test_returns_401_when_no_token_provided(self, client):
-        res = client.get("/v1/items")
+        res = client.get("/v1/claims")
         assert res.status_code == 401
         body = res.json()
         assert "code" in body
         assert "message" in body
 
-    def test_returns_403_when_viewer_accesses_contributor_only_endpoint(self, client):
-        viewer = create_viewer_token()
+    def test_returns_403_when_agent_tries_to_register_pet(self, client):
+        agent = create_agent_token()
         res = client.post(
-            "/v1/items",
-            json={"name": "Forbidden Item"},
-            headers={"Authorization": f"Bearer {viewer['token']}"},
+            "/v1/pets",
+            json={"name": "Buddy", "species": "dog", "dateOfBirth": "2020-01-01"},
+            headers=auth_header(agent["token"]),
         )
         assert res.status_code == 403
-        assert "code" in res.json()
+        body = res.json()
+        assert "code" in body
 
-    def test_returns_404_for_non_existent_resource(self, client):
-        contrib = create_contributor_token()
+    def test_returns_404_for_non_existent_pet(self, client):
+        owner = create_pet_owner_token()
         res = client.get(
-            "/v1/items/00000000-0000-0000-0000-000000000000",
-            headers={"Authorization": f"Bearer {contrib['token']}"},
+            "/v1/pets/00000000-0000-0000-0000-000000000000",
+            headers=auth_header(owner["token"]),
         )
         assert res.status_code == 404
         assert res.json()["code"] == "RESOURCE_NOT_FOUND"
 
-    def test_returns_409_for_duplicate_email_on_register(self, client):
-        payload = {
-            "email": "dup@example.com",
-            "password": "password123",
-            "firstName": "D",
-            "lastName": "U",
-            "role": "contributor",
-        }
-        client.post("/v1/auth/register", json=payload)
-        res = client.post("/v1/auth/register", json=payload)
+    def test_returns_409_for_invalid_status_transition(self, client):
+        owner = create_pet_owner_token()
+        pet = seed_pet(owner["user"]["id"])
+        claim = seed_claim(pet["id"], owner["user"]["id"], status="approved")
+        agent = create_agent_token()
+        res = client.post(
+            f"/v1/claims/{claim['id']}/approve",
+            headers=auth_header(agent["token"]),
+        )
         assert res.status_code == 409
-        assert res.json()["code"] == "DUPLICATE_EMAIL"
+        assert res.json()["code"] == "INVALID_STATUS"

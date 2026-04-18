@@ -1,89 +1,102 @@
-# Sequence Diagrams — Items
-
-> **Example domain.** This is the working reference implementation included with the Domain API Template.
-> Replace this file with your own sequence diagrams by running `task domain:init`.
+# Sequence Diagrams — Pet Insurance
 
 ---
 
-## Flow 1: Register and Log In
+## Overview
+
+Key interaction flows for the Pet Insurance domain.
+
+All authenticated requests include `Authorization: Bearer <token>` header (omitted from diagrams for brevity). `4xx` error paths are omitted; see `auth-matrix.md` for access control rules.
+
+---
+
+## Flow 1: Registration and Login
 
 ```mermaid
 sequenceDiagram
     participant Client
     participant API
 
-    Client->>API: POST /v1/auth/register<br/>{ email, password, role: "contributor" }
+    Client->>API: POST /v1/auth/register (email, password, role: pet_owner)
     API-->>Client: 201 { accessToken, refreshToken, user }
 
-    Client->>API: POST /v1/auth/login<br/>{ email, password }
+    Client->>API: POST /v1/auth/login (email, password)
     API-->>Client: 200 { accessToken, refreshToken, user }
 ```
 
 ---
 
-## Flow 2: Contributor Creates and Manages Items
+## Flow 2: Pet Owner Registers a Pet and Submits a Claim
 
 ```mermaid
 sequenceDiagram
-    participant Contributor
+    participant PetOwner as Pet Owner
     participant API
 
-    Contributor->>API: POST /v1/items<br/>{ name: "My Item" }<br/>Authorization: Bearer <token>
-    API-->>Contributor: 201 { id, name, status: "active", contributorId, ... }
+    PetOwner->>API: POST /v1/pets (name, species, breed, dateOfBirth)
+    API-->>PetOwner: 201 { id, name, species, ... petOwnerId }
 
-    Contributor->>API: GET /v1/items<br/>Authorization: Bearer <token>
-    API-->>Contributor: 200 { data: [...], pagination: { page, pageSize, total } }
+    PetOwner->>API: POST /v1/claims (petId, amount, description)
+    API-->>PetOwner: 201 { id, petId, amount, status: "pending", ... }
 
-    Contributor->>API: PATCH /v1/items/{itemId}<br/>{ status: "archived" }<br/>Authorization: Bearer <token>
-    API-->>Contributor: 200 { id, name, status: "archived", ... }
-
-    Contributor->>API: DELETE /v1/items/{itemId}<br/>Authorization: Bearer <token>
-    API-->>Contributor: 204
+    PetOwner->>API: GET /v1/claims
+    API-->>PetOwner: 200 { data: [{ id, status: "pending", ... }], pagination }
 ```
 
 ---
 
-## Flow 3: Viewer Browses Items
+## Flow 3: Agent Reviews and Approves a Claim
 
 ```mermaid
 sequenceDiagram
-    participant Viewer
+    participant Agent
     participant API
 
-    Viewer->>API: POST /v1/auth/login<br/>{ email, password }
-    API-->>Viewer: 200 { accessToken, ... }
+    Agent->>API: GET /v1/claims
+    API-->>Agent: 200 { data: [{ id, status: "pending", petId, amount, ... }], pagination }
 
-    Viewer->>API: GET /v1/items<br/>Authorization: Bearer <token>
-    API-->>Viewer: 200 { data: [...], pagination: { ... } }
+    Agent->>API: GET /v1/pets/{petId}
+    API-->>Agent: 200 { id, name, species, dateOfBirth, ... }
 
-    Viewer->>API: GET /v1/items/{itemId}<br/>Authorization: Bearer <token>
-    API-->>Viewer: 200 { id, name, description, status, ... }
-
-    Viewer->>API: POST /v1/items<br/>{ name: "Viewer Item" }<br/>Authorization: Bearer <token>
-    API-->>Viewer: 403 { code: "FORBIDDEN" }
+    Agent->>API: POST /v1/claims/{claimId}/approve
+    API-->>Agent: 200 { id, status: "approved", ... }
 ```
 
 ---
 
-## Flow 4: Token Refresh
+## Flow 4: Agent Rejects a Claim
+
+```mermaid
+sequenceDiagram
+    participant Agent
+    participant API
+
+    Agent->>API: POST /v1/claims/{claimId}/reject
+    API-->>Agent: 200 { id, status: "rejected", ... }
+```
+
+---
+
+## Flow 5: Pet Owner Cancels a Pending Claim
+
+```mermaid
+sequenceDiagram
+    participant PetOwner as Pet Owner
+    participant API
+
+    PetOwner->>API: DELETE /v1/claims/{claimId}
+    API-->>PetOwner: 204 (No Content)
+```
+
+---
+
+## Flow 6: Token Refresh
 
 ```mermaid
 sequenceDiagram
     participant Client
     participant API
 
-    Note over Client: Access token has expired
-
-    Client->>API: POST /v1/auth/refresh<br/>{ refreshToken }
+    Client->>API: POST /v1/auth/refresh (refreshToken)
     API-->>Client: 200 { accessToken, refreshToken }
-
-    Client->>API: GET /v1/items<br/>Authorization: Bearer <new_token>
-    API-->>Client: 200 { data: [...] }
 ```
-
----
-
-## Notes
-
-- All authenticated requests include `Authorization: Bearer <token>` (omitted from some diagrams for brevity).
-- `4xx` error paths are covered by the auth matrix — see `auth-matrix.md`.

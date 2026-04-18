@@ -22,8 +22,8 @@ tasks:
   # AUTH
   # ---------------------------------------------------------------------------
 
-  auth:register:contributor:
-    desc: Register a contributor (saves CONTRIBUTOR_TOKEN)
+  auth:register:pet-owner:
+    desc: Register a pet owner (saves PET_OWNER_TOKEN)
     vars:
       DEMO_ID:
         sh: grep '^DEMO_ID=' {{.STATE}} 2>/dev/null | cut -d= -f2-
@@ -32,20 +32,20 @@ tasks:
         RESPONSE=$(curl -s -X POST {{.BASE_URL}}/auth/register \
           -H "Content-Type: application/json" \
           -d "{
-            \"email\": \"contributor.{{.DEMO_ID}}@example.com\",
+            \"email\": \"owner.{{.DEMO_ID}}@example.com\",
             \"password\": \"password123\",
             \"firstName\": \"Alice\",
-            \"lastName\": \"Contributor\",
-            \"role\": \"contributor\"
+            \"lastName\": \"PetOwner\",
+            \"role\": \"pet_owner\"
           }")
         echo "$RESPONSE" | jq .
         TOKEN=$(echo "$RESPONSE" | jq -r '.accessToken')
-        grep -v "^CONTRIBUTOR_TOKEN=" {{.STATE}} > {{.STATE}}.tmp 2>/dev/null || true
-        echo "CONTRIBUTOR_TOKEN=$TOKEN" >> {{.STATE}}.tmp
+        grep -v "^PET_OWNER_TOKEN=" {{.STATE}} > {{.STATE}}.tmp 2>/dev/null || true
+        echo "PET_OWNER_TOKEN=$TOKEN" >> {{.STATE}}.tmp
         mv {{.STATE}}.tmp {{.STATE}}
 
-  auth:register:viewer:
-    desc: Register a viewer (saves VIEWER_TOKEN)
+  auth:register:agent:
+    desc: Register an insurance agent (saves AGENT_TOKEN)
     vars:
       DEMO_ID:
         sh: grep '^DEMO_ID=' {{.STATE}} 2>/dev/null | cut -d= -f2-
@@ -54,20 +54,20 @@ tasks:
         RESPONSE=$(curl -s -X POST {{.BASE_URL}}/auth/register \
           -H "Content-Type: application/json" \
           -d "{
-            \"email\": \"viewer.{{.DEMO_ID}}@example.com\",
+            \"email\": \"agent.{{.DEMO_ID}}@example.com\",
             \"password\": \"password123\",
             \"firstName\": \"Bob\",
-            \"lastName\": \"Viewer\",
-            \"role\": \"viewer\"
+            \"lastName\": \"Agent\",
+            \"role\": \"agent\"
           }")
         echo "$RESPONSE" | jq .
         TOKEN=$(echo "$RESPONSE" | jq -r '.accessToken')
-        grep -v "^VIEWER_TOKEN=" {{.STATE}} > {{.STATE}}.tmp 2>/dev/null || true
-        echo "VIEWER_TOKEN=$TOKEN" >> {{.STATE}}.tmp
+        grep -v "^AGENT_TOKEN=" {{.STATE}} > {{.STATE}}.tmp 2>/dev/null || true
+        echo "AGENT_TOKEN=$TOKEN" >> {{.STATE}}.tmp
         mv {{.STATE}}.tmp {{.STATE}}
 
-  auth:login:contributor:
-    desc: Login as contributor (saves CONTRIBUTOR_TOKEN)
+  auth:login:pet-owner:
+    desc: Login as pet owner (saves PET_OWNER_TOKEN)
     vars:
       DEMO_ID:
         sh: grep '^DEMO_ID=' {{.STATE}} 2>/dev/null | cut -d= -f2-
@@ -76,157 +76,237 @@ tasks:
         RESPONSE=$(curl -s -X POST {{.BASE_URL}}/auth/login \
           -H "Content-Type: application/json" \
           -d "{
-            \"email\": \"contributor.{{.DEMO_ID}}@example.com\",
+            \"email\": \"owner.{{.DEMO_ID}}@example.com\",
             \"password\": \"password123\"
           }")
         echo "$RESPONSE" | jq .
         TOKEN=$(echo "$RESPONSE" | jq -r '.accessToken')
-        grep -v "^CONTRIBUTOR_TOKEN=" {{.STATE}} > {{.STATE}}.tmp 2>/dev/null || true
-        echo "CONTRIBUTOR_TOKEN=$TOKEN" >> {{.STATE}}.tmp
+        grep -v "^PET_OWNER_TOKEN=" {{.STATE}} > {{.STATE}}.tmp 2>/dev/null || true
+        echo "PET_OWNER_TOKEN=$TOKEN" >> {{.STATE}}.tmp
         mv {{.STATE}}.tmp {{.STATE}}
 
   auth:logout:
-    desc: Logout (invalidate the contributor session)
+    desc: Logout (invalidate the pet owner session)
     vars:
-      CONTRIBUTOR_TOKEN:
-        sh: grep '^CONTRIBUTOR_TOKEN=' {{.STATE}} 2>/dev/null | cut -d= -f2-
+      PET_OWNER_TOKEN:
+        sh: grep '^PET_OWNER_TOKEN=' {{.STATE}} 2>/dev/null | cut -d= -f2-
     cmds:
       - |
         curl -s -X POST {{.BASE_URL}}/auth/logout \
-          -H "Authorization: Bearer {{.CONTRIBUTOR_TOKEN}}"
+          -H "Authorization: Bearer {{.PET_OWNER_TOKEN}}"
         echo "Logged out."
 
   # ---------------------------------------------------------------------------
-  # ITEMS
+  # PETS
   # ---------------------------------------------------------------------------
 
-  items:list:
-    desc: List all items (uses CONTRIBUTOR_TOKEN)
+  pets:list:
+    desc: List all pets for the authenticated pet owner
     vars:
-      CONTRIBUTOR_TOKEN:
-        sh: grep '^CONTRIBUTOR_TOKEN=' {{.STATE}} 2>/dev/null | cut -d= -f2-
+      PET_OWNER_TOKEN:
+        sh: grep '^PET_OWNER_TOKEN=' {{.STATE}} 2>/dev/null | cut -d= -f2-
     cmds:
       - |
-        curl -s -X GET {{.BASE_URL}}/items \
-          -H "Authorization: Bearer {{.CONTRIBUTOR_TOKEN}}" | jq .
+        curl -s -X GET {{.BASE_URL}}/pets \
+          -H "Authorization: Bearer {{.PET_OWNER_TOKEN}}" | jq .
 
-  items:create:
-    desc: Add a new item to the catalogue (saves ITEM_ID)
+  pets:register:
+    desc: Register a pet (saves PET_ID)
     vars:
       DEMO_ID:
         sh: grep '^DEMO_ID=' {{.STATE}} 2>/dev/null | cut -d= -f2-
-      CONTRIBUTOR_TOKEN:
-        sh: grep '^CONTRIBUTOR_TOKEN=' {{.STATE}} 2>/dev/null | cut -d= -f2-
+      PET_OWNER_TOKEN:
+        sh: grep '^PET_OWNER_TOKEN=' {{.STATE}} 2>/dev/null | cut -d= -f2-
     cmds:
       - |
-        RESPONSE=$(curl -s -X POST {{.BASE_URL}}/items \
+        RESPONSE=$(curl -s -X POST {{.BASE_URL}}/pets \
           -H "Content-Type: application/json" \
-          -H "Authorization: Bearer {{.CONTRIBUTOR_TOKEN}}" \
+          -H "Authorization: Bearer {{.PET_OWNER_TOKEN}}" \
           -d "{
-            \"name\": \"Demo Item {{.DEMO_ID}}\",
-            \"description\": \"An item added during the demo run.\"
+            \"name\": \"Buddy {{.DEMO_ID}}\",
+            \"species\": \"dog\",
+            \"breed\": \"Labrador\",
+            \"dateOfBirth\": \"2020-03-15\"
           }")
         echo "$RESPONSE" | jq .
-        ITEM_ID=$(echo "$RESPONSE" | jq -r '.id')
-        grep -v "^ITEM_ID=" {{.STATE}} > {{.STATE}}.tmp 2>/dev/null || true
-        echo "ITEM_ID=$ITEM_ID" >> {{.STATE}}.tmp
+        PET_ID=$(echo "$RESPONSE" | jq -r '.id')
+        grep -v "^PET_ID=" {{.STATE}} > {{.STATE}}.tmp 2>/dev/null || true
+        echo "PET_ID=$PET_ID" >> {{.STATE}}.tmp
         mv {{.STATE}}.tmp {{.STATE}}
 
-  items:get:
-    desc: Get the demo item by ID
+  pets:get:
+    desc: Get the demo pet by ID
     vars:
-      CONTRIBUTOR_TOKEN:
-        sh: grep '^CONTRIBUTOR_TOKEN=' {{.STATE}} 2>/dev/null | cut -d= -f2-
-      ITEM_ID:
-        sh: grep '^ITEM_ID=' {{.STATE}} 2>/dev/null | cut -d= -f2-
+      PET_OWNER_TOKEN:
+        sh: grep '^PET_OWNER_TOKEN=' {{.STATE}} 2>/dev/null | cut -d= -f2-
+      PET_ID:
+        sh: grep '^PET_ID=' {{.STATE}} 2>/dev/null | cut -d= -f2-
     cmds:
       - |
-        curl -s -X GET {{.BASE_URL}}/items/{{.ITEM_ID}} \
-          -H "Authorization: Bearer {{.CONTRIBUTOR_TOKEN}}" | jq .
+        curl -s -X GET {{.BASE_URL}}/pets/{{.PET_ID}} \
+          -H "Authorization: Bearer {{.PET_OWNER_TOKEN}}" | jq .
 
-  items:update:
-    desc: Archive the demo item
+  pets:edit:
+    desc: Edit the demo pet's breed
     vars:
-      CONTRIBUTOR_TOKEN:
-        sh: grep '^CONTRIBUTOR_TOKEN=' {{.STATE}} 2>/dev/null | cut -d= -f2-
-      ITEM_ID:
-        sh: grep '^ITEM_ID=' {{.STATE}} 2>/dev/null | cut -d= -f2-
+      PET_OWNER_TOKEN:
+        sh: grep '^PET_OWNER_TOKEN=' {{.STATE}} 2>/dev/null | cut -d= -f2-
+      PET_ID:
+        sh: grep '^PET_ID=' {{.STATE}} 2>/dev/null | cut -d= -f2-
     cmds:
       - |
-        curl -s -X PATCH {{.BASE_URL}}/items/{{.ITEM_ID}} \
+        curl -s -X PATCH {{.BASE_URL}}/pets/{{.PET_ID}} \
           -H "Content-Type: application/json" \
-          -H "Authorization: Bearer {{.CONTRIBUTOR_TOKEN}}" \
-          -d '{"status": "archived"}' | jq .
+          -H "Authorization: Bearer {{.PET_OWNER_TOKEN}}" \
+          -d '{"breed": "Golden Retriever"}' | jq .
 
-  items:delete:
-    desc: Remove the demo item from the catalogue
+  pets:get:agent:
+    desc: Get the demo pet as an agent (demonstrates agent read access)
     vars:
-      CONTRIBUTOR_TOKEN:
-        sh: grep '^CONTRIBUTOR_TOKEN=' {{.STATE}} 2>/dev/null | cut -d= -f2-
-      ITEM_ID:
-        sh: grep '^ITEM_ID=' {{.STATE}} 2>/dev/null | cut -d= -f2-
+      AGENT_TOKEN:
+        sh: grep '^AGENT_TOKEN=' {{.STATE}} 2>/dev/null | cut -d= -f2-
+      PET_ID:
+        sh: grep '^PET_ID=' {{.STATE}} 2>/dev/null | cut -d= -f2-
     cmds:
       - |
-        STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X DELETE \
-          {{.BASE_URL}}/items/{{.ITEM_ID}} \
-          -H "Authorization: Bearer {{.CONTRIBUTOR_TOKEN}}")
-        echo "DELETE /items/{{.ITEM_ID}} → HTTP $STATUS"
+        curl -s -X GET {{.BASE_URL}}/pets/{{.PET_ID}} \
+          -H "Authorization: Bearer {{.AGENT_TOKEN}}" | jq .
 
-  items:list:viewer:
-    desc: List items as a viewer (demonstrates read-only access)
+  # ---------------------------------------------------------------------------
+  # CLAIMS
+  # ---------------------------------------------------------------------------
+
+  claims:submit:
+    desc: Submit an insurance claim for the demo pet (saves CLAIM_ID)
     vars:
-      VIEWER_TOKEN:
-        sh: grep '^VIEWER_TOKEN=' {{.STATE}} 2>/dev/null | cut -d= -f2-
+      DEMO_ID:
+        sh: grep '^DEMO_ID=' {{.STATE}} 2>/dev/null | cut -d= -f2-
+      PET_OWNER_TOKEN:
+        sh: grep '^PET_OWNER_TOKEN=' {{.STATE}} 2>/dev/null | cut -d= -f2-
+      PET_ID:
+        sh: grep '^PET_ID=' {{.STATE}} 2>/dev/null | cut -d= -f2-
     cmds:
       - |
-        curl -s -X GET {{.BASE_URL}}/items \
-          -H "Authorization: Bearer {{.VIEWER_TOKEN}}" | jq .
-
-  items:create:viewer:
-    desc: Attempt to add an item as a viewer (expects 403 Forbidden)
-    vars:
-      VIEWER_TOKEN:
-        sh: grep '^VIEWER_TOKEN=' {{.STATE}} 2>/dev/null | cut -d= -f2-
-    cmds:
-      - |
-        echo "Attempting to add as viewer (should be 403):"
-        curl -s -X POST {{.BASE_URL}}/items \
+        RESPONSE=$(curl -s -X POST {{.BASE_URL}}/claims \
           -H "Content-Type: application/json" \
-          -H "Authorization: Bearer {{.VIEWER_TOKEN}}" \
-          -d '{"name": "Forbidden Item"}' | jq .
+          -H "Authorization: Bearer {{.PET_OWNER_TOKEN}}" \
+          -d "{
+            \"petId\": \"{{.PET_ID}}\",
+            \"amount\": 250.00,
+            \"description\": \"Routine check-up and vaccinations - demo {{.DEMO_ID}}\"
+          }")
+        echo "$RESPONSE" | jq .
+        CLAIM_ID=$(echo "$RESPONSE" | jq -r '.id')
+        grep -v "^CLAIM_ID=" {{.STATE}} > {{.STATE}}.tmp 2>/dev/null || true
+        echo "CLAIM_ID=$CLAIM_ID" >> {{.STATE}}.tmp
+        mv {{.STATE}}.tmp {{.STATE}}
+
+  claims:list:pet-owner:
+    desc: List claims as pet owner (sees only own claims)
+    vars:
+      PET_OWNER_TOKEN:
+        sh: grep '^PET_OWNER_TOKEN=' {{.STATE}} 2>/dev/null | cut -d= -f2-
+    cmds:
+      - |
+        curl -s -X GET {{.BASE_URL}}/claims \
+          -H "Authorization: Bearer {{.PET_OWNER_TOKEN}}" | jq .
+
+  claims:list:agent:
+    desc: List all claims as agent (sees all claims)
+    vars:
+      AGENT_TOKEN:
+        sh: grep '^AGENT_TOKEN=' {{.STATE}} 2>/dev/null | cut -d= -f2-
+    cmds:
+      - |
+        curl -s -X GET {{.BASE_URL}}/claims \
+          -H "Authorization: Bearer {{.AGENT_TOKEN}}" | jq .
+
+  claims:get:
+    desc: Get the demo claim by ID
+    vars:
+      AGENT_TOKEN:
+        sh: grep '^AGENT_TOKEN=' {{.STATE}} 2>/dev/null | cut -d= -f2-
+      CLAIM_ID:
+        sh: grep '^CLAIM_ID=' {{.STATE}} 2>/dev/null | cut -d= -f2-
+    cmds:
+      - |
+        curl -s -X GET {{.BASE_URL}}/claims/{{.CLAIM_ID}} \
+          -H "Authorization: Bearer {{.AGENT_TOKEN}}" | jq .
+
+  claims:approve:
+    desc: Approve the demo claim as agent
+    vars:
+      AGENT_TOKEN:
+        sh: grep '^AGENT_TOKEN=' {{.STATE}} 2>/dev/null | cut -d= -f2-
+      CLAIM_ID:
+        sh: grep '^CLAIM_ID=' {{.STATE}} 2>/dev/null | cut -d= -f2-
+    cmds:
+      - |
+        curl -s -X POST {{.BASE_URL}}/claims/{{.CLAIM_ID}}/approve \
+          -H "Authorization: Bearer {{.AGENT_TOKEN}}" | jq .
+
+  claims:reject:
+    desc: Reject the demo claim as agent
+    vars:
+      AGENT_TOKEN:
+        sh: grep '^AGENT_TOKEN=' {{.STATE}} 2>/dev/null | cut -d= -f2-
+      CLAIM_ID:
+        sh: grep '^CLAIM_ID=' {{.STATE}} 2>/dev/null | cut -d= -f2-
+    cmds:
+      - |
+        curl -s -X POST {{.BASE_URL}}/claims/{{.CLAIM_ID}}/reject \
+          -H "Authorization: Bearer {{.AGENT_TOKEN}}" | jq .
+
+  claims:submit:agent:
+    desc: Attempt to submit a claim as agent (expects 403 Forbidden)
+    vars:
+      AGENT_TOKEN:
+        sh: grep '^AGENT_TOKEN=' {{.STATE}} 2>/dev/null | cut -d= -f2-
+      PET_ID:
+        sh: grep '^PET_ID=' {{.STATE}} 2>/dev/null | cut -d= -f2-
+    cmds:
+      - |
+        echo "Attempting to submit claim as agent (should be 403):"
+        curl -s -X POST {{.BASE_URL}}/claims \
+          -H "Content-Type: application/json" \
+          -H "Authorization: Bearer {{.AGENT_TOKEN}}" \
+          -d "{\"petId\": \"{{.PET_ID}}\", \"amount\": 100.00, \"description\": \"Forbidden\"}" | jq .
 
   # ---------------------------------------------------------------------------
   # DEMO WORKFLOW
   # ---------------------------------------------------------------------------
 
   demo:
-    desc: Run the full end-to-end demo workflow
+    desc: Run the full end-to-end pet insurance demo workflow
     cmds:
       - task: state:clear
       - echo ""
-      - echo "=== 1. Register contributor and viewer ==="
-      - task: auth:register:contributor
-      - task: auth:register:viewer
+      - echo "=== 1. Register pet owner and agent ==="
+      - task: auth:register:pet-owner
+      - task: auth:register:agent
       - echo ""
-      - echo "=== 2. Contributor adds an item ==="
-      - task: items:create
+      - echo "=== 2. Pet owner registers a pet ==="
+      - task: pets:register
       - echo ""
-      - echo "=== 3. List items (contributor view) ==="
-      - task: items:list
+      - echo "=== 3. List pets (pet owner view) ==="
+      - task: pets:list
       - echo ""
-      - echo "=== 4. Viewer lists items (read-only) ==="
-      - task: items:list:viewer
+      - echo "=== 4. Agent views the pet ==="
+      - task: pets:get:agent
       - echo ""
-      - echo "=== 5. Viewer tries to add (expect 403) ==="
-      - task: items:create:viewer
+      - echo "=== 5. Pet owner submits a claim ==="
+      - task: claims:submit
       - echo ""
-      - echo "=== 6. Get specific item ==="
-      - task: items:get
+      - echo "=== 6. Pet owner lists their claims ==="
+      - task: claims:list:pet-owner
       - echo ""
-      - echo "=== 7. Edit item (archive it) ==="
-      - task: items:update
+      - echo "=== 7. Agent lists all claims ==="
+      - task: claims:list:agent
       - echo ""
-      - echo "=== 8. Remove item ==="
-      - task: items:delete
+      - echo "=== 8. Agent approves the claim ==="
+      - task: claims:approve
+      - echo ""
+      - echo "=== 9. Agent tries to submit a claim (expect 403) ==="
+      - task: claims:submit:agent
       - echo ""
       - echo "=== Demo complete ==="

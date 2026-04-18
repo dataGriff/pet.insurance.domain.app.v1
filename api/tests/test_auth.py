@@ -3,7 +3,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from src.main import app
-from tests.helpers import create_contributor_token
+from tests.helpers import auth_header
 
 
 @pytest.fixture
@@ -13,30 +13,30 @@ def client():
 
 
 class TestRegister:
-    def test_registers_a_new_contributor_and_returns_tokens(self, client):
+    def test_registers_a_new_pet_owner_and_returns_tokens(self, client):
         res = client.post("/v1/auth/register", json={
-            "email": "contributor@example.com",
+            "email": "owner@example.com",
             "password": "password123",
             "firstName": "Alice",
             "lastName": "Smith",
-            "role": "contributor",
+            "role": "pet_owner",
         })
         assert res.status_code == 201
         assert res.json()["accessToken"]
         assert res.json()["refreshToken"]
         assert res.json()["expiresIn"] == 3600
-        assert res.json()["user"]["role"] == "contributor"
+        assert res.json()["user"]["role"] == "pet_owner"
 
-    def test_registers_a_new_viewer(self, client):
+    def test_registers_a_new_agent(self, client):
         res = client.post("/v1/auth/register", json={
-            "email": "viewer@example.com",
+            "email": "agent@example.com",
             "password": "password123",
             "firstName": "Bob",
             "lastName": "Jones",
-            "role": "viewer",
+            "role": "agent",
         })
         assert res.status_code == 201
-        assert res.json()["user"]["role"] == "viewer"
+        assert res.json()["user"]["role"] == "agent"
 
     def test_returns_409_for_duplicate_email(self, client):
         payload = {
@@ -44,7 +44,7 @@ class TestRegister:
             "password": "password123",
             "firstName": "A",
             "lastName": "B",
-            "role": "contributor",
+            "role": "pet_owner",
         }
         client.post("/v1/auth/register", json=payload)
         res = client.post("/v1/auth/register", json=payload)
@@ -59,7 +59,7 @@ class TestLogin:
             "password": "mypassword",
             "firstName": "L",
             "lastName": "U",
-            "role": "contributor",
+            "role": "pet_owner",
         })
         res = client.post("/v1/auth/login", json={
             "email": "login@example.com",
@@ -74,7 +74,7 @@ class TestLogin:
             "password": "correctpassword",
             "firstName": "L",
             "lastName": "U",
-            "role": "contributor",
+            "role": "pet_owner",
         })
         res = client.post("/v1/auth/login", json={
             "email": "login2@example.com",
@@ -98,12 +98,10 @@ class TestLogout:
             "password": "password123",
             "firstName": "L",
             "lastName": "O",
-            "role": "contributor",
+            "role": "pet_owner",
         })
-        res = client.post(
-            "/v1/auth/logout",
-            headers={"Authorization": f"Bearer {reg.json()['accessToken']}"},
-        )
+        token = reg.json()["accessToken"]
+        res = client.post("/v1/auth/logout", headers=auth_header(token))
         assert res.status_code == 204
 
     def test_returns_401_without_token(self, client):
@@ -118,7 +116,7 @@ class TestRefresh:
             "password": "password123",
             "firstName": "R",
             "lastName": "F",
-            "role": "contributor",
+            "role": "pet_owner",
         })
         res = client.post("/v1/auth/refresh", json={"refreshToken": reg.json()["refreshToken"]})
         assert res.status_code == 200
